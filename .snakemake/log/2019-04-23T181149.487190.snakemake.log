@@ -1,4 +1,0 @@
-Building DAG of jobs...
-MissingInputException in line 9 of /Users/sebastian/Dropbox (MIT)/postdoc/Snakefile:
-Missing input files for rule convert_mat_files:
-/Users/sebastian/Dropbox (MIT)/postdoc/data/NIWmatdata/86b_grid.mat

@@ -1,4 +1,0 @@
-Building DAG of jobs...
-WildcardError in line 18 of /Users/sebastian/Dropbox (MIT)/postdoc/Snakefile:
-Wildcards in input files cannot be determined from output files:
-'float'

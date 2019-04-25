@@ -1,3 +1,0 @@
-ValueError in line 7 of /Users/sebastian/Dropbox (MIT)/postdoc/Snakefile:
-unexpected '{' in field name
-  File "/Users/sebastian/Dropbox (MIT)/postdoc/Snakefile", line 7, in <module>

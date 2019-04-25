@@ -1,3 +1,0 @@
-WildcardError in line 3 of /Users/sebastian/Dropbox (MIT)/postdoc/Snakefile:
-No values given for wildcard 'float,\x0c'.
-  File "/Users/sebastian/Dropbox (MIT)/postdoc/Snakefile", line 3, in <module>
