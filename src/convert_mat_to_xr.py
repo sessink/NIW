@@ -13,13 +13,11 @@ def load_matfile(file):
 def datenum2datetime(datenum):
     '''Convert Matlab datenum to Python Datetime'''
     return datetime.fromordinal(int(datenum)) + timedelta(days=datenum%1) - timedelta(days = 366)
-
-# vecturize datenum2datetime
+# vectorize datenum2datetime
 dn2dt_vec = np.vectorize(lambda x: datenum2datetime(x))
 
 def save_as_xr(input,output):
     '''Read float files, compose xarray dataset, convert variables, and save as netcdf
-
     last updated: april 24, 2019
         '''
     a = load_matfile(str(input))

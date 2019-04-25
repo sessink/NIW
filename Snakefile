@@ -22,4 +22,4 @@ rule make_map_all:
         'figures/float_traj.pdf'
         #expand('figures/float_traj_{group}.pdf',group=config['groups'])
     script:
-        'src/make_maps.py'
+        'src/make_maps.py
