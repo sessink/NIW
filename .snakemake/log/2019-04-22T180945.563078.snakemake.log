@@ -1,0 +1,51 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 1
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	convert_mat_files
+	1
+
+[Mon Apr 22 18:09:45 2019]
+rule convert_mat_files:
+    input: data/NIWmatdata/7784b_grid.mat, data/NIWmatdata/7786a_grid.mat, data/NIWmatdata/7782b_grid.mat, data/NIWmatdata/7781a_grid.mat, data/NIWmatdata/7785b_grid.mat, data/NIWmatdata/7787a_grid.mat, data/NIWmatdata/7786b_grid.mat, data/NIWmatdata/7700b_grid.mat, data/NIWmatdata/7780b_grid.mat, data/NIWmatdata/7783a_grid.mat, data/NIWmatdata/7701b_grid.mat, data/NIWmatdata/7779a_grid.mat, data/NIWmatdata/7788a_grid.mat, data/NIWmatdata/ungrid/7787a.mat, data/NIWmatdata/ungrid/7786b.mat, data/NIWmatdata/ungrid/7786a.mat, data/NIWmatdata/ungrid/7781a.mat, data/NIWmatdata/ungrid/7779a.mat, data/NIWmatdata/ungrid/7780b.mat, data/NIWmatdata/ungrid/7701b.mat, data/NIWmatdata/ungrid/7783a.mat, data/NIWmatdata/ungrid/7782b.mat, data/NIWmatdata/ungrid/7700b.mat, data/NIWmatdata/ungrid/7785b.mat, data/NIWmatdata/ungrid/7788a.mat, data/NIWmatdata/ungrid/7784b.mat, data/NIWmatdata/supp/ascat_wind.mat, data/NIWmatdata/supp/Hmxl.mat
+    output: data/xarray/7784b_grid.nc, data/xarray/7786a_grid.nc, data/xarray/7782b_grid.nc, data/xarray/7781a_grid.nc, data/xarray/7785b_grid.nc, data/xarray/7787a_grid.nc, data/xarray/7786b_grid.nc, data/xarray/7700b_grid.nc, data/xarray/7780b_grid.nc, data/xarray/7783a_grid.nc, data/xarray/7701b_grid.nc, data/xarray/7779a_grid.nc, data/xarray/7788a_grid.nc, data/xarray/ungrid/7787a.nc, data/xarray/ungrid/7786b.nc, data/xarray/ungrid/7786a.nc, data/xarray/ungrid/7781a.nc, data/xarray/ungrid/7779a.nc, data/xarray/ungrid/7780b.nc, data/xarray/ungrid/7701b.nc, data/xarray/ungrid/7783a.nc, data/xarray/ungrid/7782b.nc, data/xarray/ungrid/7700b.nc, data/xarray/ungrid/7785b.nc, data/xarray/ungrid/7788a.nc, data/xarray/ungrid/7784b.nc, data/xarray/supp/ascat_wind.nc, data/xarray/supp/Hmxl.nc
+    jobid: 0
+
+Waiting at most 5 seconds for missing files.
+MissingOutputException in line 3 of /Users/sebastian/Dropbox (MIT)/postdoc/Snakefile:
+Missing files after 5 seconds:
+data/xarray/7786a_grid.nc
+data/xarray/7782b_grid.nc
+data/xarray/7781a_grid.nc
+data/xarray/7785b_grid.nc
+data/xarray/7787a_grid.nc
+data/xarray/7786b_grid.nc
+data/xarray/7700b_grid.nc
+data/xarray/7780b_grid.nc
+data/xarray/7783a_grid.nc
+data/xarray/7701b_grid.nc
+data/xarray/7779a_grid.nc
+data/xarray/7788a_grid.nc
+data/xarray/ungrid/7787a.nc
+data/xarray/ungrid/7786b.nc
+data/xarray/ungrid/7786a.nc
+data/xarray/ungrid/7781a.nc
+data/xarray/ungrid/7779a.nc
+data/xarray/ungrid/7780b.nc
+data/xarray/ungrid/7701b.nc
+data/xarray/ungrid/7783a.nc
+data/xarray/ungrid/7782b.nc
+data/xarray/ungrid/7700b.nc
+data/xarray/ungrid/7785b.nc
+data/xarray/ungrid/7788a.nc
+data/xarray/ungrid/7784b.nc
+data/xarray/supp/ascat_wind.nc
+data/xarray/supp/Hmxl.nc
+This might be due to filesystem latency. If that is the case, consider to increase the wait time with --latency-wait.
+Removing output files of failed job convert_mat_files since they might be corrupted:
+data/xarray/7784b_grid.nc
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message
+Complete log: /Users/sebastian/Dropbox (MIT)/postdoc/.snakemake/log/2019-04-22T180945.563078.snakemake.log

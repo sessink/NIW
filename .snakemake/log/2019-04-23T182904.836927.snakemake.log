@@ -1,0 +1,4 @@
+Building DAG of jobs...
+MissingInputException in line 4 of /Users/sebastian/Dropbox (MIT)/postdoc/Snakefile:
+Missing input files for rule all:
+figures/float_trajectories.pdf

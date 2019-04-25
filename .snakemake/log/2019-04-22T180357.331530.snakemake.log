@@ -1,0 +1,16 @@
+Building DAG of jobs...
+MissingInputException in line 3 of /Users/sebastian/Dropbox (MIT)/postdoc/Snakefile:
+Missing input files for rule convert_mat_files:
+data/NIWmatdata/7786a_.mat
+data/NIWmatdata/7701b_.mat
+data/NIWmatdata/7788a_.mat
+data/NIWmatdata/7700b_.mat
+data/NIWmatdata/7787a_.mat
+data/NIWmatdata/7785b_.mat
+data/NIWmatdata/7783a_.mat
+data/NIWmatdata/7786b_.mat
+data/NIWmatdata/7780b_.mat
+data/NIWmatdata/7781a_.mat
+data/NIWmatdata/7779a_.mat
+data/NIWmatdata/7782b_.mat
+data/NIWmatdata/7784b_.mat

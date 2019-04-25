@@ -1,0 +1,3 @@
+NameError in line 22 of /Users/sebastian/Dropbox (MIT)/postdoc/Snakefile:
+name 'xrs' is not defined
+  File "/Users/sebastian/Dropbox (MIT)/postdoc/Snakefile", line 22, in <module>

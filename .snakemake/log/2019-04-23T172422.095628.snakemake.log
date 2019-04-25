@@ -1,0 +1,3 @@
+KeyError in line 10 of /Users/sebastian/Dropbox (MIT)/postdoc/Snakefile:
+'float'
+  File "/Users/sebastian/Dropbox (MIT)/postdoc/Snakefile", line 10, in <module>

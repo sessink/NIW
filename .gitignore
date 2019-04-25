@@ -1,0 +1,9 @@
+**.nc
+**.mat
+/figures/*.pdf
+**.ipynb_checkpoints
+./literature/
+**.DS_Store
+/data/*
+/literature/*
+papers_to_read/
