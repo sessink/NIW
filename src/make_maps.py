@@ -15,7 +15,7 @@ from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import cartopy.feature as cfeature
 
 # #mpl.rcParams.keys()
-project_path = '/Users/sebastian/Dropbox (MIT)/postdoc/'
+#project_path = '/Users/sebastian/Dropbox (MIT)/postdoc/'
 sns.set(style='ticks',context='paper')
 mpl.rc('figure', dpi=120, figsize=[10,5])
 mpl.rc('savefig',dpi=500,bbox='tight')
@@ -27,7 +27,7 @@ img_extent = [140, 162, 34, 45]
 ax.set_extent(img_extent, crs=ccrs.PlateCarree())
 
 for i in snakemake.input:
-    file =  os.path.join(project_path,i)
+    file =  str(i) #os.path.join(project_path,i)
     c = count()
     dat = xr.open_dataset(str(file))
     ax.plot(dat.lon,dat.lat,lw=2,label=dat.floatid)
@@ -68,6 +68,6 @@ ax.add_feature(gshhs)
 ax.text(142.2, 43.5, 'Hokkaido', transform=ccrs.PlateCarree())
 ax.text(140.4, 39.7, 'Honshu', transform=ccrs.PlateCarree())
 # ax.gridlines()
-output_path = os.path.join(project_path,str(snakemake.output))
+output_path = str(snakemake.output) #os.path.join(project_path,str(snakemake.output))
 plt.savefig(output_path)
 plt.close()

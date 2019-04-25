@@ -28,7 +28,12 @@ def save_as_xr(input,output):
         'u2': (['z','time'],a['A']['u2'].flatten()[0]),
         'v1': (['z','time'],a['A']['v1'].flatten()[0]),
         'v2': (['z','time'],a['A']['v2'].flatten()[0]),
+        'du1dz': (['z','time'],a['A']['du1dz'].flatten()[0]),
+        'du2dz': (['z','time'],a['A']['du2dz'].flatten()[0]),
+        'dv1dz': (['z','time'],a['A']['dv1dz'].flatten()[0]),
+        'dv2dz': (['z','time'],a['A']['dv2dz'].flatten()[0]),
         'n2': (['z','time'],a['A']['N2'].flatten()[0])},
+
         coords = {'pressure':(['z'],a['A']['Pr'].flatten()[0].astype(float)),
                     'z': a['A']['Pr'].flatten()[0].astype(float),
                     'lat':(['time'],a['A']['lat'].flatten()[0]),
@@ -41,9 +46,14 @@ def save_as_xr(input,output):
     ds = ds.dropna(dim='time',how='all')
     # convert to datetime
     ds = ds.assign_coords(time=(dn2dt_vec(ds.time)))
-    ds = ds.assign_coords(z=-ds.z)
+   
     # comvert pressure to depth
-    ds = ds.assign_coords(z=-(gsw.z_from_p(ds.z,ds.lat.mean()).astype(float)))
+    ds = ds.assign_coords(z=(gsw.z_from_p(ds.z,ds.lat.mean()).astype(float)))
+    ds = ds.assign_coords(z=-ds.z)
+
+    _, index = np.unique(data.time, return_index=True)
+    data = data.isel(time=index)
+
     # save as netcdf
     ds.to_netcdf(str(output))
     
