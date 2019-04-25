@@ -1,8 +1,12 @@
+# hidden files, force-add gitignore
 .*
 !/.gitignore
 
+# files
 **.nc
 **.mat
 **.ipynb
-/figures/*.pdf
+
+# folders
+/figures/*
 /data/*
