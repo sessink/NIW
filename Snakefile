@@ -7,6 +7,9 @@ rule all:
     input:
         expand('figures/vel_{float}.pdf',float=FLOATS),
         expand('figures/shear_{float}.pdf',float=FLOATS),
+        expand('figures/vel_{float}_filt.pdf',float=FLOATS),
+        expand('figures/shear_{float}_filt.pdf',float=FLOATS),
+        expand('figures/epschi_{float}.pdf',float=FLOATS),
         'figures/float_traj.pdf',
 
 rule convert_mat_files:
@@ -17,6 +20,14 @@ rule convert_mat_files:
 	script:
 		'src/convert_mat_to_xr.py'
 
+rule filter:
+	input:
+		'data/xarray/xr_{float}_grid.nc'
+	output:
+		'data/xarray/xr_{float}_grid_filt.nc'
+	script:
+		'src/filter.py'
+
 rule make_map_all:
     input:
         expand('data/xarray/xr_{float}_grid.nc',float=FLOATS)
@@ -25,6 +36,15 @@ rule make_map_all:
     script:
         'src/make_maps.py'
 
+rule vel_shear_filter:
+    input:
+        'data/xarray/xr_{float}_grid_filt.nc'
+    output:
+        'figures/vel_{float}_filt.pdf',
+        'figures/shear_{float}_filt.pdf'
+    script:
+        'src/plot_velshear.py'
+
 rule vel_shear:
     input:
         'data/xarray/xr_{float}_grid.nc'
@@ -32,4 +52,12 @@ rule vel_shear:
         'figures/vel_{float}.pdf',
         'figures/shear_{float}.pdf'
     script:
-        'src/plot_vel_shear.py'
+        'src/plot_velshear.py'
+
+rule turb:
+    input:
+        'data/xarray/xr_{float}_grid.nc'
+    output:
+        'figures/epschi_{float}.pdf',
+    script:
+        'src/plot_turb.py'
