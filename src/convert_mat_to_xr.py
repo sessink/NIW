@@ -30,7 +30,7 @@ def save_as_xr(input,output):
     chi =  np.nanmedian( np.dstack( (a['A']['chi1'].flatten()[0],a['A']['chi2'].flatten()[0]) ) ,axis=2)
 
     ds = xr.Dataset({ # define wanted variables here!
-        'sigma': (['z','time'],a['A']['Sigma'].flatten()[0]-1000),
+        'sigma': (['z','time'],a['A']['Sigma'].flatten()[0]),
         'u': (['z','time'],u),
         'v': (['z','time'],v),
         'dudz': (['z','time'],dudz),
