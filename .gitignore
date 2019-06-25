@@ -18,5 +18,5 @@ __pycache__/
 /literature/*
 /papers_to_read/*
 /src/pwp/
-/src/ipynb/
-/presentations/*
+/presentations/
+/src/old/
