@@ -2,6 +2,11 @@
 .*
 !/.gitignore
 
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+
 # files
 **.nc
 **.mat
@@ -12,3 +17,7 @@
 /data/*
 /literature/*
 /papers_to_read/*
+/src/pwp/*
+/src/ipynb/*
+/presentations/*
+/src/pwp/*
