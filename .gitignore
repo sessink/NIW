@@ -17,6 +17,6 @@ __pycache__/
 /data/*
 /literature/*
 /papers_to_read/*
-/src/pwp/*
-/src/ipynb/*
+/src/pwp/
+/src/ipynb/
 /presentations/*
