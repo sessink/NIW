@@ -2,4 +2,4 @@
 Snakemake shenanigans: Take one!
 
 
-![DAG]['./dag.pdf']
+![DAG of workflow.]('./dag.pdf')
