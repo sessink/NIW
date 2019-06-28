@@ -2,4 +2,4 @@
 Snakemake shenanigans: Take one!
 
 
-![DAG of workflow.]('./dag.pdf')
+![DAG of workflow.](https://github.com/sessink/NIW.git/dag.pdf)
