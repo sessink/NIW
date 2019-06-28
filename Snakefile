@@ -7,7 +7,7 @@ rule all:
     input:
         expand('data/ml/ml_{float}_filt_5Tf.nc', float=FLOATS),
         # expand('figures/vel_{float}_filt.pdf',float=FLOATS),
-        # expand('figures/dens_{float}.pdf',float=FLOATS),
+        expand('figures/dens_filt_{float}.pdf',float=FLOATS),
         # expand('figures/shear_{float}.pdf',float=FLOATS),
         # expand('figures/vel_{float}_filt.pdf',float=FLOATS),
         # expand('figures/shear_{float}_filt.pdf',float=FLOATS),
@@ -40,13 +40,29 @@ rule resample_and_filter:
 	script:
 		'src/resample_filter.py'
 
-rule ml_averages:
+rule compute_ml_averages:
 	input:
 		'data/filtered/xr_{float}_grid_filt_5Tf.nc'
 	output:
 		'data/ml/ml_{float}_filt_5Tf.nc'
 	script:
 		'src/compute_ml_averages.py'
+
+# rule plot_dens:
+#     input:
+#         'data/xarray/xr_{float}_grid.nc'
+#     output:
+#         'figures/dens_{float}.pdf',
+#     script:
+#         'src/plot_dens_n2.py'
+
+rule plot_dens_filt:
+    input:
+        'data/filtered/xr_{float}_grid_filt_5Tf.nc'
+    output:
+        'figures/dens_filt_{float}.pdf',
+    script:
+        'src/plot_dens_n2.py'
 
 rule ml_timeseries:
     input:
@@ -57,15 +73,15 @@ rule ml_timeseries:
     script:
         'src/ml_timeseries.py'
 
-rule nio_maps:
-    input:
-        'data/filtered/ml_{float}_filt_5Tf.nc'
-    output:
-        'figures/nio_maps_{float}.pdf'
-        'figures/nio_map.pdf'
-    script:
-        'src/nio_maps.py'
-
+# rule nio_maps:
+#     input:
+#         'data/filtered/ml_{float}_filt_5Tf.nc'
+#     output:
+#         'figures/nio_maps_{float}.pdf'
+#         'figures/nio_map.pdf'
+#     script:
+#         'src/nio_maps.py'
+#
 # rule make_map_all:
 #     input:
 #         expand('data/xarray/xr_{float}_grid.nc',float=FLOATS)
@@ -73,10 +89,10 @@ rule nio_maps:
 #         'figures/float_traj.pdf'
 #     script:
 #         'src/make_maps.py'
-# #
+#
 # rule plot_vel:
 #     input:
-#         'data/xarray/xr_{float}_grid_filt_5Tf.nc'
+#         'data/filtered/xr_{float}_grid_filt_5Tf.nc'
 #     output:
 #         'figures/vel_{float}_filt.pdf',
 #     script:

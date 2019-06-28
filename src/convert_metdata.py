@@ -40,10 +40,10 @@ def convert_metdata(input, output):
     dsa = xr.Dataset({  # define wanted variables here!
         'lat': (['floatid', 'time'], data['lat_grid'][:6]),
         'lon': (['floatid', 'time'], data['lon_grid'][:6]),
-        'vtau': (['floatid', 'time'], data['vtau_grid'][:6]),
-        'utau': (['floatid', 'time'], data['utau_grid'][:6]),
+        'ty': (['floatid', 'time'], data['vtau_grid'][:6]),
+        'tx': (['floatid', 'time'], data['utau_grid'][:6]),
         'qlat': (['floatid', 'time'], data['lhtfl_grid'][:6]),
-        'qsen': (['floatid', 'time'], data['shtfl_grid'][:6]),
+        'qsens': (['floatid', 'time'], data['shtfl_grid'][:6]),
         'uswrf': (['floatid', 'time'], data['uswrf_grid'][:6]),
         'ulwrf': (['floatid', 'time'], data['ulwrf_grid'][:6]),
         'dswrf': (['floatid', 'time'], data['dswrf_grid'][:6]),
@@ -56,10 +56,10 @@ def convert_metdata(input, output):
     dsb = xr.Dataset({ # define wanted variables here!
         'lat': (['floatid','time'],data['lat_grid'][6:]),
         'lon': (['floatid','time'],data['lon_grid'][6:]),
-        'vtau': (['floatid','time'],data['vtau_grid'][6:]),
-        'utau': (['floatid','time'],data['utau_grid'][6:]),
+        'ty': (['floatid','time'],data['vtau_grid'][6:]),
+        'tx': (['floatid','time'],data['utau_grid'][6:]),
         'qlat': (['floatid', 'time'], data['lhtfl_grid'][6:]),
-        'qsen': (['floatid', 'time'], data['shtfl_grid'][6:]),
+        'qsens': (['floatid', 'time'], data['shtfl_grid'][6:]),
         'uswrf': (['floatid', 'time'], data['uswrf_grid'][6:]),
         'ulwrf': (['floatid', 'time'], data['ulwrf_grid'][6:]),
         'dswrf': (['floatid', 'time'], data['dswrf_grid'][6:]),
@@ -71,21 +71,21 @@ def convert_metdata(input, output):
 
     dsa['lw'] = dsa.dlwrf-dsa.ulwrf
     dsa['sw'] = dsa.dswrf-dsa.uswrf
-    dsa['Qnet'] = -dsa.qlat-dsa.qsen+dsa.sw+dsa.lw
+    dsa['Qnet'] = -dsa.qlat-dsa.qsens+dsa.sw+dsa.lw
     dsa = dsa.drop(['dlwrf','ulwrf','dswrf','uswrf'])
 
     dsb['lw'] = dsb.dlwrf-dsb.ulwrf
     dsb['sw'] = dsb.dswrf-dsb.uswrf
-    dsb['Qnet'] = -dsb.qlat-dsb.qsen+dsb.sw+dsb.lw
+    dsb['Qnet'] = -dsb.qlat-dsb.qsens+dsb.sw+dsb.lw
     dsb = dsb.drop(['dlwrf','ulwrf','dswrf','uswrf'])
 
     dsa = dsa.dropna(dim='time',how='any')
     dsa = dsa.assign_coords(time=( dn2dt_vec(dsa.time) ))
-    dsa['tau'] = 0.5*(dsa.utau**2 + dsa.vtau**2)
+    dsa['tau'] = 0.5*(dsa.tx**2 + dsa.ty**2)
 
     dsb = dsb.dropna(dim='time',how='any')
     dsb = dsb.assign_coords(time=( dn2dt_vec(dsb.time) ))
-    dsb['tau'] = 0.5*(dsb.utau**2 + dsb.vtau**2)
+    dsb['tau'] = 0.5*(dsb.tx**2 + dsb.ty**2)
 
     merge = xr.merge([dsa,dsb])
 

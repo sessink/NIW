@@ -11,11 +11,11 @@ def compute_mld(data):
 	for t in range(data.time.size):
 		test = data.isel(time=t)
 		# test = test.dropna(dim='z')
-		if test.sigma.size>0:
-			f = interp1d(test.sigma,test.z)
-			a = test.sigma.interp(z=-10)+0.03
+		if test.rho0.size>0:
+			f = interp1d(test.rho0,test.z)
+			a = test.rho0.interp(z=-10)+0.03
 			a
-			if (a>test.sigma.min()) & (a<test.sigma.max()):
+			if (a>test.rho0.min()) & (a<test.rho0.max()):
 				mld[t] = f(a)
 			else:
 				mld[t]=np.nan

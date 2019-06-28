@@ -23,8 +23,7 @@ mpl.rc('savefig',dpi=500,bbox='tight')
 mpl.rc('legend',frameon=False)
 
 # %%
-dir = glob.glob('./data/xarray/ml_????a*.nc')
-dir
+dir = glob.glob('./data/ml/ml_????a*.nc')
 all=[]
 floatid = []
 for file in dir:
