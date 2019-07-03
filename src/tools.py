@@ -2,6 +2,7 @@ def compute_mld(data):
 	'''
 	mld criterion: depth of z|_(rho_10m +0.03kg/m3)
 
+	last changed: july 2,19
 	'''
 	import numpy as np
 	import xarray as xr
@@ -10,15 +11,13 @@ def compute_mld(data):
 	mld = np.zeros(data.time.size)
 	for t in range(data.time.size):
 		test = data.isel(time=t)
-		# test = test.dropna(dim='z')
 		if test.rho0.size>0:
 			f = interp1d(test.rho0,test.z)
 			a = test.rho0.interp(z=-10)+0.03
-			a
 			if (a>test.rho0.min()) & (a<test.rho0.max()):
 				mld[t] = f(a)
 			else:
-				mld[t]=np.nan
+				mld[t] = np.nan
 		else:
 			mld[t]=np.nan
 	data['mld'] = ('time',mld)

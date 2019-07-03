@@ -13,6 +13,7 @@ mpl.rc('figure', dpi=120, figsize=[10, 7])
 mpl.rc('savefig', dpi=500, bbox='tight')
 mpl.rc('legend', frameon=False)
 
+from tools import compute_mld
 
 # %% design butterworth Filter
 def butter_lowpass(cutoff, fs, order=5):
@@ -87,16 +88,15 @@ def filter_wrapper(data_resampled, output, resample_period, filter_period):
     for var in vars:
         data_resampled = filter_variables(data_resampled, var, filter_period, resample_period)
         # data_resampled = recompute_shears(data_resampled,var)
+    data_resampled = data_resampled.dropna(dim='time',how='all')
+    data_resampled = compute_mld(data_resampled)
     data_resampled.to_netcdf(str(output))
 
 # %% MAIN
-filter_period = 4  # non-dim, multiples of the inertial period Tf
-resample_period = '6h'  # datetime format, for xarray resample
 
-
-data_resampled = resample_wrapper(snakemake.input, resample_period)
+data_resampled = resample_wrapper(snakemake.input, snakemake.config['resample_period'])
 filter_wrapper(data_resampled, snakemake.output,
-               resample_period, filter_period)
+               snakemake.config['resample_period'], snakemake.config['filter_period'])
 
 # %% Plot the frequency response.
 

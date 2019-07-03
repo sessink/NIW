@@ -1,17 +1,15 @@
 configfile: 'config.yaml'
 workdir: config['path']
-
 FLOATS = config['floats']
+filter_period = str( config['filter_period'] )
 
 rule all:
     input:
-        expand('data/ml/ml_{float}_filt_5Tf.nc', float=FLOATS),
-        # expand('figures/vel_{float}_filt.pdf',float=FLOATS),
-        expand('figures/dens_filt_{float}.pdf',float=FLOATS),
-        # expand('figures/shear_{float}.pdf',float=FLOATS),
-        # expand('figures/vel_{float}_filt.pdf',float=FLOATS),
-        # expand('figures/shear_{float}_filt.pdf',float=FLOATS),
-        # expand('figures/epschi_{float}.pdf',float=FLOATS),
+        expand('data/ml/ml_{float}_{filter_period}Tf.nc',
+               float=FLOATS,filter_period=filter_period),
+        expand('figures/summary_{float}_{filter_period}Tf.pdf',
+               float=FLOATS,filter_period=filter_period)
+        # expand('figures/nio_maps_{float}_{filter_period}Tf.pdf',float=FLOATS,filter_period=filter_period),
         # 'figures/float_traj.pdf',
 
 rule convert_mat_files:
@@ -36,48 +34,40 @@ rule resample_and_filter:
 	input:
 		'data/xarray/xr_{float}_grid.nc'
 	output:
-		'data/filtered/xr_{float}_grid_filt_5Tf.nc'
+		'data/filtered/filt_{float}_{filter_period}Tf.nc'
 	script:
 		'src/resample_filter.py'
 
+rule summary_plots:
+    input:
+        'data/filtered/filt_{float}_{filter_period}Tf.nc'
+    output:
+        'figures/summary_{float}_{filter_period}Tf.pdf'
+    script:
+        'src/summary_plots.py'
+
 rule compute_ml_averages:
 	input:
-		'data/filtered/xr_{float}_grid_filt_5Tf.nc'
+		'data/filtered/filt_{float}_{filter_period}Tf.nc'
 	output:
-		'data/ml/ml_{float}_filt_5Tf.nc'
+		'data/ml/ml_{float}_{filter_period}Tf.nc'
 	script:
 		'src/compute_ml_averages.py'
 
-# rule plot_dens:
+# rule ml_timeseries:
 #     input:
-#         'data/xarray/xr_{float}_grid.nc'
+#         'data/ml/ml_{float}_{filter_period}Tf.nc',
+#         'data/metdata/float_cfs_hourly.nc'
 #     output:
-#         'figures/dens_{float}.pdf',
+#         'figures/ml_timeseries_{float}_{filter_period}Tf.pdf'
 #     script:
-#         'src/plot_dens_n2.py'
-
-rule plot_dens_filt:
-    input:
-        'data/filtered/xr_{float}_grid_filt_5Tf.nc'
-    output:
-        'figures/dens_filt_{float}.pdf',
-    script:
-        'src/plot_dens_n2.py'
-
-rule ml_timeseries:
-    input:
-        'data/ml/ml_{float}_filt_5Tf.nc',
-        'data/metdata/float_cfs_hourly.nc'
-    output:
-        'figures/ml_timeseries_{float}.pdf'
-    script:
-        'src/ml_timeseries.py'
+#         'src/ml_timeseries.py'
 
 # rule nio_maps:
 #     input:
-#         'data/filtered/ml_{float}_filt_5Tf.nc'
+#         'data/ml/ml_{float}_{filter_period}Tf.nc'
 #     output:
-#         'figures/nio_maps_{float}.pdf'
+#         'figures/nio_maps_{float}_{filter_period}Tf.pdf',
 #         'figures/nio_map.pdf'
 #     script:
 #         'src/nio_maps.py'
@@ -89,36 +79,3 @@ rule ml_timeseries:
 #         'figures/float_traj.pdf'
 #     script:
 #         'src/make_maps.py'
-#
-# rule plot_vel:
-#     input:
-#         'data/filtered/xr_{float}_grid_filt_5Tf.nc'
-#     output:
-#         'figures/vel_{float}_filt.pdf',
-#     script:
-#         'src/plot_vel.py'
-#
-# rule plot_dens:
-#     input:
-#         'data/xarray/xr_{float}_grid.nc'
-#     output:
-#         'figures/dens_{float}.pdf',
-#     script:
-#         'src/plot_dens_n2.py'
-#
-# rule vel_shear:
-#     input:
-#         'data/xarray/xr_{float}_grid.nc'
-#     output:
-#         'figures/vel_{float}.pdf',
-#         'figures/shear_{float}.pdf'
-#     script:
-#         'src/plot_velshear.py'
-
-# rule turb:
-#     input:
-#         'data/xarray/xr_{float}_grid.nc'
-#     output:
-#         'figures/epschi_{float}.pdf',
-#     script:
-#         'src/plot_turb.py'

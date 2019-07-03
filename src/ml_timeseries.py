@@ -15,7 +15,7 @@ mpl.rc('savefig',dpi=500,bbox='tight')
 mpl.rc('legend',frameon=False)
 
 # %% read data
-path = './data/ml/ml_7787a_filt_5Tf.nc'
+path = './data/ml/ml_7788a_filt_5Tf.nc'
 dat = xr.open_dataset(path)
 met = xr.open_dataset('data/metdata/float_cfs_hourly.nc')
 float = path.split('_')[1]
@@ -26,8 +26,8 @@ met.sel(floatid=float).tx.plot(ax=ax[0])
 met.sel(floatid=float).ty.plot(ax=ax[0])
 ax[0].set_ylim(0,1)
 # dat.eps.pipe(np.log10).plot(ax=ax[1])
-dat.hke.plot(ax=ax[1],label='HKE')
-dat.hke_lowpass.plot(ax=ax[1],label='HKE Lowpass',marker='.')
+# dat.hke.plot(ax=ax[1],label='HKE')
+# dat.hke_lowpass.plot(ax=ax[1],label='HKE Lowpass',marker='.')
 dat.hke_resid.plot(ax=ax[1],label='HKE Residual')
 ax[1].legend(loc='best')
 # dat.mld.plot(ax=ax[3])

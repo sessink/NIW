@@ -3,7 +3,7 @@
 # import pandas as pd
 import xarray as xr
 # import gsw
-from tools import compute_mld
+# from tools import compute_mld
 # import matplotlib.pyplot as plt
 
 
@@ -25,7 +25,7 @@ def mlavg_wrapper(input, output):
     data = xr.open_dataset(file)
 
     # compute ML and averages
-    data = compute_mld(data)
+    # data = compute_mld(data)
 
     # compute some variables
     data['hke'] = 0.5*(data.u**2 + data.v**2)
@@ -34,7 +34,6 @@ def mlavg_wrapper(input, output):
     # ata['H'] =
 
     mlavg = integrate_columns(data)
-
     mlavg.to_netcdf(str(output))
 
 
