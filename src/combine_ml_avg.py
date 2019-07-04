@@ -17,9 +17,8 @@ data = xr.concat(files, dim='float')
 data = xr.concat(files)
 data = data.assign_coords(float=floatnames)
 data = data.assign_coords(floatid=np.arange(len(files)))
-
+test
 data.to_netcdf(str(snakemake.output))
-
 
 # %% TESTING
 # infile = ['data/ml/ml_7700b_9h_6Tf.nc',
