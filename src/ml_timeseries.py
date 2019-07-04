@@ -13,25 +13,35 @@ mpl.rc('figure', dpi=100, figsize=[10, 7])
 mpl.rc('savefig', dpi=500, bbox='tight')
 mpl.rc('legend', frameon=False)
 
+
+# %% FUNCTIONS
+def vertical_line(axis, x, ymax=1.2):
+    for i, ax in enumerate(axis):
+        if i == 0:
+            ax.axvline(x=x1,
+                       ymin=0,
+                       ymax=1,
+                       c="black",
+                       linewidth=1,
+                       zorder=0,
+                       clip_on=False)
+        else:
+            ax.axvline(x=x1,
+                       ymin=0,
+                       ymax=ymax,
+                       c="black",
+                       linewidth=1,
+                       zorder=0,
+                       clip_on=False)
+
+
 # %% read data
 path = './data/ml/mlall_9h_6Tf.nc'
 dat = xr.open_dataset(path)
 met = xr.open_dataset('data/metdata/float_cfs_hourly.nc')
 
-dat
 # %%
-
-
-def vertical_line(axis, x, ymax=1.2):
-    for i, ax in enumerate(axis):
-        if i == 0:
-            ax.axvline(x=x1, ymin=0, ymax=1, c="black", linewidth=1,
-                       zorder=0, clip_on=False)
-        else:
-            ax.axvline(x=x1, ymin=0, ymax=ymax, c="black", linewidth=1,
-                       zorder=0, clip_on=False)
-
-
+dat
 # %%
 f, ax = plt.subplots(3, 1, sharex=True)
 for float in dat.float:
@@ -49,6 +59,6 @@ for float in dat.float:
     dat.sel(float=float).mld.plot(ax=ax[2])
 
     x1 = dat.time.isel(time=20).values
-    vertical_line(ax, x1)
+    # vertical_line(ax, x1)
 
 # dat.mld.plot(ax=ax[3])

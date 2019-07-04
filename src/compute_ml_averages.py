@@ -35,7 +35,6 @@ def mlavg_wrapper(input, output):
     mlavg['mld'] = data.mld
     mlavg.to_netcdf(str(output))
 
-
 # %% MAIN
 mlavg_wrapper(snakemake.input, snakemake.output)
 
