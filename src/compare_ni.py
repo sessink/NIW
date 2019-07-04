@@ -20,7 +20,7 @@ def plot_data(infile, outfile):
     id = str(infile).split('_')[1].split('.')[0]
     data['rho0'] = data.rho0-1000
 
-    var = ['rho0', 'n2', 'u_lowpass', 'u_resid', 'v_lowpass', 'v_resid']
+    var = ['u_lowpass', 'u_resid', 'uni', 'v_lowpass', 'v_resid', 'vni']
     f, ax = plt.subplots(len(var), 1, sharex=True)
     for i, ax in enumerate(ax):
         if 'rho' in var[i]:
@@ -45,6 +45,11 @@ def plot_data(infile, outfile):
                               cbar_kwargs={'pad': 0.01},
                               vmin=-.75, vmax=.75, cmap='RdBu_r')
 
+        elif 'ni' in var[i]:
+                    data.mld.plot(ax=ax, color='k')
+                    data[var[i]].plot(ax=ax, rasterized=True,
+                                      cbar_kwargs={'pad': 0.01},
+                                      vmin=-.3, vmax=.3, cmap='RdBu_r')
         ax.set_xticks(pd.date_range(data.time.min().values,
                       data.time.max().values, freq='M',))
         ax.set(ylim=[-500, 0], title=var[i], xlabel=None)
@@ -56,17 +61,10 @@ def plot_data(infile, outfile):
 # # %% MAIN
 plot_data(snakemake.input, snakemake.output)
 
-# # %% TESTING
-# infile = 'data/filtered/filt_7784b_5Tf.nc'
-# raw = 'data/xarray/xr_7784b_grid.nc'
-# data = xr.open_dataset(infile)
-# rawdata = xr.open_dataset(raw)
-# # plot_data(infile, 'test.pdf')
-# data
+# %% TESTING
+# 
+# infile = 'data/filtered/filt_7780b_9h_6Tf.nc'
+# data = xr.open_dataset(str(infile))
 #
-#
-# data['uplus'] = data.u+0.2
-# data.uplus.interp(z=-100,method='linear').plot(label='interp')
-# rawdata.u.interp(z=-100,method='linear').plot(label='raw')
-# plt.legend()
-# plt.savefig('test.pdf')
+# data.uni.plot()
+# plot_data(infile,'test.pdf')
