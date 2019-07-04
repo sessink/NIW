@@ -20,8 +20,8 @@ def compute_ni_currents(data):
     uarray = np.zeros(data.u.shape)
     varray = np.zeros(data.u.shape)
     for t, _ in enumerate(data.time[:-1]):
-        uarray[:, t] = 0.5*(data.u.isel(time=t)-data.u.isel(time=t+1))
-        varray[:, t] = 0.5*(data.v.isel(time=t)-data.v.isel(time=t+1))
+        uarray[:, t] = 0.5 * (data.u.isel(time=t) - data.u.isel(time=t + 1))
+        varray[:, t] = 0.5 * (data.v.isel(time=t) - data.v.isel(time=t + 1))
 
     data['uni'] = (('z', 'time'), uarray)
     data['vni'] = (('z', 'time'), varray)

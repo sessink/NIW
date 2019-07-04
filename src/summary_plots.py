@@ -18,7 +18,7 @@ mpl.rc('legend', frameon=False)
 def plot_data(infile, outfile):
     data = xr.open_dataset(str(infile))
     id = str(infile).split('_')[1].split('.')[0]
-    data['rho0'] = data.rho0-1000
+    data['rho0'] = data.rho0 - 1000
 
     var = ['rho0', 'n2', 'u_lowpass', 'u_resid', 'v_lowpass', 'v_resid']
     f, ax = plt.subplots(len(var), 1, sharex=True)
@@ -46,7 +46,7 @@ def plot_data(infile, outfile):
                               vmin=-.75, vmax=.75, cmap='RdBu_r')
 
         ax.set_xticks(pd.date_range(data.time.min().values,
-                      data.time.max().values, freq='M',))
+                                    data.time.max().values, freq='M',))
         ax.set(ylim=[-500, 0], title=var[i], xlabel=None)
         ax.set_title('')
     plt.subplots_adjust(hspace=0.1)

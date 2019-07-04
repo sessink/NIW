@@ -12,9 +12,14 @@ rule all:
         expand('figures/summary/summary_{float}_{resample_period}_{filter_period}Tf.pdf',
                float=FLOATS, filter_period=filter_period,
                resample_period=resample_period),
-        expand('figures/summary/compare_ni_{float}_{resample_period}_{filter_period}Tf.pdf',
+        expand('figures/ni_currents/compare_ni_{float}_{resample_period}_{filter_period}Tf.pdf',
                float=FLOATS, filter_period=filter_period,
-               resample_period=resample_period)
+               resample_period=resample_period),
+        expand('figures/ni_currents/compare_ni_hke_{float}_{resample_period}_{filter_period}Tf.pdf',
+               float=FLOATS, filter_period=filter_period,
+               resample_period=resample_period),
+        expand('data/ml/mlall_{resample_period}_{filter_period}Tf.nc',
+               filter_period=filter_period, resample_period=resample_period)
         # expand('figures/nio_maps_{float}_{filter_period}Tf.pdf',float=FLOATS,filter_period=filter_period),
         # 'figures/float_traj.pdf',
 
@@ -52,7 +57,7 @@ rule filter:
 	script:
 		'src/filter.py'
 
-rule summary_plots:
+rule summary_plts:
     input:
         'data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc'
     output:
@@ -64,11 +69,12 @@ rule compare_ni:
     input:
         'data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc'
     output:
-        'figures/summary/compare_ni_{float}_{resample_period}_{filter_period}Tf.pdf'
+        'figures/ni_currents/compare_ni_{float}_{resample_period}_{filter_period}Tf.pdf',
+        'figures/ni_currents/compare_ni_hke_{float}_{resample_period}_{filter_period}Tf.pdf'
     script:
         'src/compare_ni.py'
 
-rule compute_ml_averages:
+rule compute_ml_avg:
 	input:
 		'data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc'
 	output:
@@ -76,7 +82,19 @@ rule compute_ml_averages:
 	script:
 		'src/compute_ml_averages.py'
 
-rule ml_timeseries:
+rule combine_ml_avg:
+    input:
+        expand('data/ml/ml_{float}_{resample_period}_{filter_period}Tf.nc',
+               float=FLOATS,resample_period=resample_period,
+               filter_period=filter_period)
+    output:
+        'data/ml/mlall_{resample_period}_{filter_period}Tf.nc'
+    benchmark:
+        repeat('benchmark/bench_{resample_period}_{filter_period}Tf.txt',3)
+    script:
+        'src/combine_ml_avg.py'
+
+rule plt_ml_timeseries:
     input:
         'data/ml/ml_{float}_{filter_period}Tf.nc',
         'data/metdata/float_cfs_hourly.nc'

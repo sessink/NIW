@@ -15,10 +15,10 @@ mpl.rc('legend', frameon=False)
 
 
 # %% FUNCTIONs
-def plot_data(infile, outfile):
+def plot_currents(infile, outfile):
     data = xr.open_dataset(str(infile))
     id = str(infile).split('_')[1].split('.')[0]
-    data['rho0'] = data.rho0-1000
+    data['rho0'] = data.rho0 - 1000
 
     var = ['u_lowpass', 'u_resid', 'uni', 'v_lowpass', 'v_resid', 'vni']
     f, ax = plt.subplots(len(var), 1, sharex=True)
@@ -46,12 +46,46 @@ def plot_data(infile, outfile):
                               vmin=-.75, vmax=.75, cmap='RdBu_r')
 
         elif 'ni' in var[i]:
-                    data.mld.plot(ax=ax, color='k')
-                    data[var[i]].plot(ax=ax, rasterized=True,
-                                      cbar_kwargs={'pad': 0.01},
-                                      vmin=-.3, vmax=.3, cmap='RdBu_r')
+            data.mld.plot(ax=ax, color='k')
+            data[var[i]].plot(ax=ax, rasterized=True,
+                              cbar_kwargs={'pad': 0.01},
+                              vmin=-.3, vmax=.3, cmap='RdBu_r')
         ax.set_xticks(pd.date_range(data.time.min().values,
-                      data.time.max().values, freq='M',))
+                                    data.time.max().values, freq='M',))
+        ax.set(ylim=[-500, 0], title=var[i], xlabel=None)
+        ax.set_title('')
+    plt.subplots_adjust(hspace=0.1)
+    plt.savefig(str(outfile))
+
+
+def plot_hke(infile, outfile):
+    mpl.rc('figure', dpi=120, figsize=[8.5, 5.5])
+    data = xr.open_dataset(str(infile))
+    id = str(infile).split('_')[1].split('.')[0]
+    data['rho0'] = data.rho0 - 1000
+
+    data['hke_lowpass'] = 0.5 * (data.u_lowpass**2 + data.v_lowpass**2)
+    data['hke_resid'] = 0.5 * (data.u_resid**2 + data.v_resid**2)
+    data['hke_ni'] = 0.5 * (data.uni**2 + data.vni**2)
+
+    var = ['hke_lowpass', 'hke_resid', 'hke_ni']
+    f, ax = plt.subplots(len(var), 1, sharex=True)
+    for i, ax in enumerate(ax):
+
+        if 'lowpass' in var[i]:
+            data.mld.plot(ax=ax, color='k')
+            data[var[i]].plot(ax=ax, rasterized=True,
+                              cbar_kwargs={'pad': 0.01},
+                              vmin=0, vmax=.3, cmap=cm.amp)
+
+        else:
+            data.mld.plot(ax=ax, color='k')
+            data[var[i]].plot(ax=ax, rasterized=True,
+                              cbar_kwargs={'pad': 0.01},
+                              vmin=0, vmax=.3, cmap=cm.amp)
+
+        ax.set_xticks(pd.date_range(data.time.min().values,
+                                    data.time.max().values, freq='M',))
         ax.set(ylim=[-500, 0], title=var[i], xlabel=None)
         ax.set_title('')
     plt.subplots_adjust(hspace=0.1)
@@ -59,10 +93,11 @@ def plot_data(infile, outfile):
 
 
 # # %% MAIN
-plot_data(snakemake.input, snakemake.output)
+plot_currents(snakemake.input, snakemake.output[0])
+plot_hke(snakemake.input, snakemake.output[1])
 
 # %% TESTING
-# 
+#
 # infile = 'data/filtered/filt_7780b_9h_6Tf.nc'
 # data = xr.open_dataset(str(infile))
 #

@@ -2,6 +2,7 @@
 # import numpy as np
 # import pandas as pd
 import xarray as xr
+
 # import gsw
 # from tools import compute_mld
 # import matplotlib.pyplot as plt
@@ -13,7 +14,7 @@ def integrate_columns(data):
         Integrate each profile over mixed layer.
     '''
     data = data.where(data.z >= data.mld)
-    data['z'] = data.z*(-1)
+    data['z'] = data.z * (-1)
     array = []
     for t in range(data.time.size):
         array.append(data.isel(time=t).dropna('z').integrate('z'))
@@ -24,16 +25,14 @@ def mlavg_wrapper(input, output):
     file = str(input)
     data = xr.open_dataset(file)
 
-    # compute ML and averages
-    # data = compute_mld(data)
-
     # compute some variables
-    data['hke'] = 0.5*(data.u**2 + data.v**2)
-    data['hke_lowpass'] = 0.5*(data.u_lowpass**2 + data.v_lowpass**2)
-    data['hke_resid'] = 0.5*(data.u_resid**2 + data.v_resid**2)
-    # ata['H'] =
+    data['hke'] = 0.5 * (data.u**2 + data.v**2)
+    data['hke_lowpass'] = 0.5 * (data.u_lowpass**2 + data.v_lowpass**2)
+    data['hke_resid'] = 0.5 * (data.u_resid**2 + data.v_resid**2)
+    data['hke_ni'] = 0.5 * (data.uni**2 + data.vni**2)
 
     mlavg = integrate_columns(data)
+    mlavg['mld'] = data.mld
     mlavg.to_netcdf(str(output))
 
 
@@ -41,8 +40,10 @@ def mlavg_wrapper(input, output):
 mlavg_wrapper(snakemake.input, snakemake.output)
 
 # %% testing
-# file = './data/filtered/xr_7788a_grid_filt_5Tf.nc'
-# data = xr.open_dataset(file)
+file = './data/filtered/filt_7788a_9h_6Tf.nc'
+data = xr.open_dataset(file)
+
+data.drop(['eps'])
 #
 # # compute ML and averages
 # data = compute_mld(data)

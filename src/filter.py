@@ -1,9 +1,9 @@
+import gsw
 import numpy as np
 # import pandas as pd
 import xarray as xr
-
 from scipy.signal import butter, filtfilt
-import gsw
+
 from tools import compute_mld
 
 # import matplotlib.pyplot as plt
@@ -36,10 +36,11 @@ def filter_variables(data_resampled, var, resample_period, filter_period):
     # Filter requirements.
     order = 6
     sampling_period = np.int(resample_period.split('h')[0])
-    fs = 1/(3600*sampling_period)       # sample rate, Hz
+    fs = 1 / (3600 * sampling_period)       # sample rate, Hz
     f = gsw.f(39)   # inertial frequency
-    Tf = 2*np.pi/f  # inertial period
-    cutoff = 1/(Tf*filter_period)  # desired cutoff frequency of the filter, Hz
+    Tf = 2 * np.pi / f  # inertial period
+    # desired cutoff frequency of the filter, Hz
+    cutoff = 1 / (Tf * filter_period)
 
     # loop over depths
     bucket = []
@@ -52,15 +53,15 @@ def filter_variables(data_resampled, var, resample_period, filter_period):
                                        dims=['time']))
         else:
             bucket.append(xr.DataArray(
-                np.ones(dat.time.size)*np.nan,
+                np.ones(dat.time.size) * np.nan,
                 coords=[dat.time],
                 dims=['time']))
     ds = xr.concat(bucket, data_resampled.z)
 
     # new variable
-    data_resampled[var+'_lowpass'] = ds
-    data_resampled[var+'_resid'] = data_resampled[var] - \
-        data_resampled[var+'_lowpass']
+    data_resampled[var + '_lowpass'] = ds
+    data_resampled[var + '_resid'] = data_resampled[var] - \
+        data_resampled[var + '_lowpass']
     return data_resampled
 
 

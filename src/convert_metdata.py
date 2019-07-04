@@ -1,14 +1,15 @@
 # %% imports
 # import os,glob
-import numpy as np
-# import pandas as pd
-import xarray as xr
-import scipy.io as sio
 from datetime import datetime, timedelta
 
+import matplotlib as mpl
+import numpy as np
+import scipy.io as sio
 # import matplotlib.pyplot as plt
 import seaborn as sns
-import matplotlib as mpl
+# import pandas as pd
+import xarray as xr
+
 # import cmocean.cm as cm
 
 sns.set(style='ticks', context='paper')
@@ -48,55 +49,56 @@ def convert_metdata(input, output):
         'ulwrf': (['floatid', 'time'], data['ulwrf_grid'][:6]),
         'dswrf': (['floatid', 'time'], data['dswrf_grid'][:6]),
         'dlwrf': (['floatid', 'time'], data['dlwrf_grid'][:6]),
-        },
+    },
         coords={'floatid': data['Floats'][:6].flatten(),
                 'time': data['Jday_gmt_grid'][0].flatten()}
-        )
+    )
 
-    dsb = xr.Dataset({ # define wanted variables here!
-        'lat': (['floatid','time'],data['lat_grid'][6:]),
-        'lon': (['floatid','time'],data['lon_grid'][6:]),
-        'ty': (['floatid','time'],data['vtau_grid'][6:]),
-        'tx': (['floatid','time'],data['utau_grid'][6:]),
+    dsb = xr.Dataset({  # define wanted variables here!
+        'lat': (['floatid', 'time'], data['lat_grid'][6:]),
+        'lon': (['floatid', 'time'], data['lon_grid'][6:]),
+        'ty': (['floatid', 'time'], data['vtau_grid'][6:]),
+        'tx': (['floatid', 'time'], data['utau_grid'][6:]),
         'qlat': (['floatid', 'time'], data['lhtfl_grid'][6:]),
         'qsens': (['floatid', 'time'], data['shtfl_grid'][6:]),
         'uswrf': (['floatid', 'time'], data['uswrf_grid'][6:]),
         'ulwrf': (['floatid', 'time'], data['ulwrf_grid'][6:]),
         'dswrf': (['floatid', 'time'], data['dswrf_grid'][6:]),
         'dlwrf': (['floatid', 'time'], data['dlwrf_grid'][6:]),
-        },
-        coords = {'floatid': data['Floats'][6:].flatten(),
-                  'time':data['Jday_gmt_grid'][6].flatten()}
-        )
+    },
+        coords={'floatid': data['Floats'][6:].flatten(),
+                'time': data['Jday_gmt_grid'][6].flatten()}
+    )
 
-    dsa['lw'] = dsa.dlwrf-dsa.ulwrf
-    dsa['sw'] = dsa.dswrf-dsa.uswrf
-    dsa['Qnet'] = -dsa.qlat-dsa.qsens+dsa.sw+dsa.lw
-    dsa = dsa.drop(['dlwrf','ulwrf','dswrf','uswrf'])
+    dsa['lw'] = dsa.dlwrf - dsa.ulwrf
+    dsa['sw'] = dsa.dswrf - dsa.uswrf
+    dsa['Qnet'] = -dsa.qlat - dsa.qsens + dsa.sw + dsa.lw
+    dsa = dsa.drop(['dlwrf', 'ulwrf', 'dswrf', 'uswrf'])
 
-    dsb['lw'] = dsb.dlwrf-dsb.ulwrf
-    dsb['sw'] = dsb.dswrf-dsb.uswrf
-    dsb['Qnet'] = -dsb.qlat-dsb.qsens+dsb.sw+dsb.lw
-    dsb = dsb.drop(['dlwrf','ulwrf','dswrf','uswrf'])
+    dsb['lw'] = dsb.dlwrf - dsb.ulwrf
+    dsb['sw'] = dsb.dswrf - dsb.uswrf
+    dsb['Qnet'] = -dsb.qlat - dsb.qsens + dsb.sw + dsb.lw
+    dsb = dsb.drop(['dlwrf', 'ulwrf', 'dswrf', 'uswrf'])
 
-    dsa = dsa.dropna(dim='time',how='any')
-    dsa = dsa.assign_coords(time=( dn2dt_vec(dsa.time) ))
-    dsa['tau'] = 0.5*(dsa.tx**2 + dsa.ty**2)
+    dsa = dsa.dropna(dim='time', how='any')
+    dsa = dsa.assign_coords(time=(dn2dt_vec(dsa.time)))
+    dsa['tau'] = 0.5 * (dsa.tx**2 + dsa.ty**2)
 
-    dsb = dsb.dropna(dim='time',how='any')
-    dsb = dsb.assign_coords(time=( dn2dt_vec(dsb.time) ))
-    dsb['tau'] = 0.5*(dsb.tx**2 + dsb.ty**2)
+    dsb = dsb.dropna(dim='time', how='any')
+    dsb = dsb.assign_coords(time=(dn2dt_vec(dsb.time)))
+    dsb['tau'] = 0.5 * (dsb.tx**2 + dsb.ty**2)
 
-    merge = xr.merge([dsa,dsb])
+    merge = xr.merge([dsa, dsb])
 
     dsa.to_netcdf(output[0])
     dsb.to_netcdf(output[1])
     merge.to_netcdf(output[2])
 
-convert_metdata(snakemake.input,snakemake.output)
+
+convert_metdata(snakemake.input, snakemake.output)
 
 
-#%% plot timeseries of tau
+# %% plot timeseries of tau
 
 # path = './data/metdata/float_cfs_hourly.mat'
 # data = load_matfile(path)
@@ -122,7 +124,7 @@ convert_metdata(snakemake.input,snakemake.output)
 # plt.savefig('./figures/tau_timeseries.pdf')
 # plt.show()
 
-#%% plot timeseries of Q
+# %% plot timeseries of Q
 # f,ax = plt.subplots(2,1,sharex=False)
 # for i in dsa.floatid:
 #     dsa.Qsfc.isel(floatid=i).plot(label=dsa.float[i].values,ax=ax[0])
