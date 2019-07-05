@@ -83,8 +83,11 @@ color = sns.color_palette("GnBu_d", n_colors=len(store))
 f, ax = plt.subplots(1, 1, figsize=(10, 10), sharey=True, sharex=True)
 for i, t in enumerate(store):
     temp = allt.isel(time=t)
-    ax.quiver(np.arange(6), np.zeros(6) + 2 * t,
-              temp.u_resid, temp.v_resid, color=color[i])
+    ax.quiver(np.arange(6),
+              np.zeros(6) + 2 * t,
+              temp.u_resid,
+              temp.v_resid,
+              color=color[i])
     ax.set_xlim(1, 6)
 
     # ax.set_ylim(-0.02,0.02)

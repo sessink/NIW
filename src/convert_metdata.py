@@ -97,7 +97,6 @@ def convert_metdata(input, output):
 
 convert_metdata(snakemake.input, snakemake.output)
 
-
 # %% plot timeseries of tau
 
 # path = './data/metdata/float_cfs_hourly.mat'

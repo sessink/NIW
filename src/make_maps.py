@@ -32,13 +32,15 @@ for i in snakemake.input:
     c = count()
     dat = xr.open_dataset(str(file))
     ax.plot(dat.lon, dat.lat, lw=2, label=dat.floatid)
-ax.set(ylabel='Latitude',
-       xlabel='Longitude')
+ax.set(ylabel='Latitude', xlabel='Longitude')
 # ax.set_title(f'Deployment {letter.upper()}')
 plt.legend(bbox_to_anchor=(1.08, 1), title='Floats')
 
-gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                  linewidth=0.1, alpha=1, linestyle='-')
+gl = ax.gridlines(crs=ccrs.PlateCarree(),
+                  draw_labels=True,
+                  linewidth=0.1,
+                  alpha=1,
+                  linestyle='-')
 gl.xlabels_top = False
 gl.ylabels_left = False
 gl.xformatter = LONGITUDE_FORMATTER
@@ -46,21 +48,13 @@ gl.yformatter = LATITUDE_FORMATTER
 
 cmap = plt.get_cmap('Blues')
 norm = plt.Normalize(0, 10000)
-for letter, level in [
-    ('L', 0),
-    ('K', 200),
-    ('J', 1000),
-    ('I', 2000),
-    ('H', 3000),
-    ('G', 4000),
-    ('F', 5000),
-    ('E', 6000),
-    ('D', 7000),
-    ('C', 8000),
-    ('B', 9000),
-        ('A', 10000)]:
-    bathym = cfeature.NaturalEarthFeature(name='bathymetry_{}_{}'.format(letter, level),
-                                          scale='10m', category='physical')
+for letter, level in [('L', 0), ('K', 200), ('J', 1000), ('I', 2000),
+                      ('H', 3000), ('G', 4000), ('F', 5000), ('E', 6000),
+                      ('D', 7000), ('C', 8000), ('B', 9000), ('A', 10000)]:
+    bathym = cfeature.NaturalEarthFeature(name='bathymetry_{}_{}'.format(
+        letter, level),
+                                          scale='10m',
+                                          category='physical')
     ax.add_feature(bathym, facecolor=cmap(norm(level)), edgecolor='face')
 
 ax.add_feature(cfeature.LAND)

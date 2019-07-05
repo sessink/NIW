@@ -18,6 +18,9 @@ rule all:
         expand('figures/ni_currents/compare_ni_hke_{float}_{resample_period}_{filter_period}Tf.pdf',
                float=FLOATS, filter_period=filter_period,
                resample_period=resample_period),
+        expand('figures/ml_timeseries/ml_timeseries_{float}__{resample_period}_{filter_period}Tf.pdf',
+               float=FLOATS, filter_period=filter_period,
+               resample_period=resample_period),
         expand('data/ml/mlall_{resample_period}_{filter_period}Tf.nc',
                filter_period=filter_period, resample_period=resample_period)
         # expand('figures/nio_maps_{float}_{filter_period}Tf.pdf',float=FLOATS,filter_period=filter_period),
@@ -80,7 +83,7 @@ rule compute_ml_avg:
 	output:
 		'data/ml/ml_{float}_{resample_period}_{filter_period}Tf.nc'
 	script:
-		'src/compute_ml_averages.py'
+		'src/compute_ml_avg.py'
 
 rule combine_ml_avg:
     input:
@@ -96,10 +99,10 @@ rule combine_ml_avg:
 
 rule plt_ml_timeseries:
     input:
-        'data/ml/ml_{float}_{filter_period}Tf.nc',
+        'data/ml/ml_{float}_{resample_period}_{filter_period}Tf.nc',
         'data/metdata/float_cfs_hourly.nc'
     output:
-        'figures/ml_timeseries_{float}_{filter_period}Tf.pdf'
+        'figures/ml_timeseries/ml_timeseries_{float}__{resample_period}_{filter_period}Tf.pdf'
     script:
         'src/ml_timeseries.py'
 

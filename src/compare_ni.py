@@ -1,11 +1,10 @@
 # %% IMPORTS
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import xarray as xr
-
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 import seaborn as sns
+import xarray as xr
 from cmocean import cm
 
 sns.set(style='ticks', context='paper')
@@ -25,33 +24,50 @@ def plot_currents(infile, outfile):
     for i, ax in enumerate(ax):
         if 'rho' in var[i]:
             data.mld.plot(ax=ax, color='k')
-            data[var[i]].plot(ax=ax, rasterized=True,
+            data[var[i]].plot(ax=ax,
+                              rasterized=True,
                               cbar_kwargs={'pad': 0.01},
-                              vmin=22.5, vmax=27.5,
+                              vmin=22.5,
+                              vmax=27.5,
                               cmap=cm.dense)
         elif 'n2' in var[i]:
             data.mld.plot(ax=ax, color='k')
-            data[var[i]].pipe(np.log10).plot(ax=ax, rasterized=True,
+            data[var[i]].pipe(np.log10).plot(ax=ax,
+                                             rasterized=True,
                                              cbar_kwargs={'pad': 0.01},
-                                             vmin=-5, cmap=cm.amp)
+                                             vmin=-5,
+                                             cmap=cm.amp)
         elif 'resid' in var[i]:
             data.mld.plot(ax=ax, color='k')
-            data[var[i]].plot(ax=ax, rasterized=True,
-                              cbar_kwargs={'pad': 0.01}, vmin=-.3, vmax=.3,
+            data[var[i]].plot(ax=ax,
+                              rasterized=True,
+                              cbar_kwargs={'pad': 0.01},
+                              vmin=-.3,
+                              vmax=.3,
                               cmap='RdBu_r')
         elif 'lowpass' in var[i]:
             data.mld.plot(ax=ax, color='k')
-            data[var[i]].plot(ax=ax, rasterized=True,
+            data[var[i]].plot(ax=ax,
+                              rasterized=True,
                               cbar_kwargs={'pad': 0.01},
-                              vmin=-.75, vmax=.75, cmap='RdBu_r')
+                              vmin=-.75,
+                              vmax=.75,
+                              cmap='RdBu_r')
 
         elif 'ni' in var[i]:
             data.mld.plot(ax=ax, color='k')
-            data[var[i]].plot(ax=ax, rasterized=True,
+            data[var[i]].plot(ax=ax,
+                              rasterized=True,
                               cbar_kwargs={'pad': 0.01},
-                              vmin=-.3, vmax=.3, cmap='RdBu_r')
-        ax.set_xticks(pd.date_range(data.time.min().values,
-                                    data.time.max().values, freq='M',))
+                              vmin=-.3,
+                              vmax=.3,
+                              cmap='RdBu_r')
+        ax.set_xticks(
+            pd.date_range(
+                data.time.min().values,
+                data.time.max().values,
+                freq='M',
+            ))
         ax.set(ylim=[-500, 0], title=var[i], xlabel=None)
         ax.set_title('')
     plt.subplots_adjust(hspace=0.1)
@@ -74,18 +90,28 @@ def plot_hke(infile, outfile):
 
         if 'lowpass' in var[i]:
             data.mld.plot(ax=ax, color='k')
-            data[var[i]].plot(ax=ax, rasterized=True,
+            data[var[i]].plot(ax=ax,
+                              rasterized=True,
                               cbar_kwargs={'pad': 0.01},
-                              vmin=0, vmax=.3, cmap=cm.amp)
+                              vmin=0,
+                              vmax=.3,
+                              cmap=cm.amp)
 
         else:
             data.mld.plot(ax=ax, color='k')
-            data[var[i]].plot(ax=ax, rasterized=True,
+            data[var[i]].plot(ax=ax,
+                              rasterized=True,
                               cbar_kwargs={'pad': 0.01},
-                              vmin=0, vmax=.3, cmap=cm.amp)
+                              vmin=0,
+                              vmax=.3,
+                              cmap=cm.amp)
 
-        ax.set_xticks(pd.date_range(data.time.min().values,
-                                    data.time.max().values, freq='M',))
+        ax.set_xticks(
+            pd.date_range(
+                data.time.min().values,
+                data.time.max().values,
+                freq='M',
+            ))
         ax.set(ylim=[-500, 0], title=var[i], xlabel=None)
         ax.set_title('')
     plt.subplots_adjust(hspace=0.1)

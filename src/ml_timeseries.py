@@ -35,30 +35,64 @@ def vertical_line(axis, x, ymax=1.2):
                        clip_on=False)
 
 
-# %% read data
-path = './data/ml/mlall_9h_6Tf.nc'
-dat = xr.open_dataset(path)
-met = xr.open_dataset('data/metdata/float_cfs_hourly.nc')
+def plot_timeseries(input, output):
 
-# %%
-dat
-# %%
-f, ax = plt.subplots(3, 1, sharex=True)
-for float in dat.float:
+    dat = xr.open_dataset(str(input[0]))
+    met = xr.open_dataset(str(input[1]))
+    float = str(input[0]).split('_')[1]
 
-    # met.sel(float=float).tx.plot(ax=ax[0])
-    # met.sel(float=float).ty.plot(ax=ax[0])
-    # ax[0].set_ylim(0,1)
-    # dat.eps.pipe(np.log10).plot(ax=ax[1])
-    # dat.hke.plot(ax=ax[1],label='HKE')
-    # dat.hke_lowpass.plot(ax=ax[1],label='HKE Lowpass',marker='.')
-    dat.sel(float=float).hke_resid.plot(ax=ax[1], label='HKE Butterworth')
-    dat.sel(float=float).hke_ni.plot(ax=ax[1], label='HKE NI')
-    ax[1].legend(loc='best')
+    f, ax = plt.subplots(5, 1, sharex=True)
+    if float != '7782b':
 
-    dat.sel(float=float).mld.plot(ax=ax[2])
+        met = met.sel(floatid=float)
+        met.tx.plot(ax=ax[0], label=r'$\tau_x$')
+        met.ty.plot(ax=ax[0], label=r'$\tau_y$')
+        ax[0].legend()
+        ax[0].set_xlabel(None)
 
-    x1 = dat.time.isel(time=20).values
-    # vertical_line(ax, x1)
+        met = met.resample(time='6h', skipna=True).mean()
+        quiveropts = dict(headlength=0,
+                          headwidth=1,
+                          scale_units='y',
+                          scale=15,
+                          color='k')
+        ax[1].quiver(met.time.values, np.zeros(met.time.shape), met.tx, met.ty,
+                     **quiveropts)
+        ax[1].set_xlabel(None)
 
-# dat.mld.plot(ax=ax[3])
+    dat.hke.plot(ax=ax[2], label='total hke')
+    dat.hke_lowpass.plot(ax=ax[2], label='lowpass hke')
+    ax[2].legend()
+    ax[2].set_xlabel(None)
+
+    dat.hke_resid.plot(ax=ax[3], label='resid hke')
+    dat.hke_ni.plot(ax=ax[3], label='ni hke')
+    ax[3].legend()
+    ax[3].set_xlabel(None)
+
+    dat.mld.plot(ax=ax[4], label=r'mld (0.03kgm$^{-3}$ from $\rho_{10m}$)')
+    ax[4].legend()
+    ax[4].set_xlabel(None)
+
+    ax[4].set_xlim(dat.mld.time.values.min(), dat.mld.time.values.max())
+    plt.tight_layout()
+    plt.savefig(str(output))
+
+
+# %% MAIN
+plot_timeseries(snakemake.input, snakemake.output)
+
+# %% testing
+# dat = xr.open_dataset('data/ml/ml_7785b_9h_6Tf.nc')
+#
+# plt.figure()
+# dat.mld.plot()
+# plt.xlim( dat.mld.time.values.min(),dat.mld.time.values.max() )
+# dat = xr.open_dataset('data/ml/ml_7788a_9h_6Tf.nc')
+# met = xr.open_dataset('data/metdata/float_cfs_hourly.nc')
+# float = '7788a'
+#
+#
+# plt.quiver(met.time.values, np.zeros(met.time.shape), met.tx, met.ty,
+#            **quiveropts)
+# plt.xlim(dat.mld.time.values.min(), dat.mld.time.values.max())
