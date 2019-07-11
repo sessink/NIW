@@ -1,3 +1,15 @@
+def load_matfile(file):
+    '''Read Matlab structure files and convert to numpy arrays'''
+    import scipy.io as sio
+    return sio.loadmat(file, struct_as_record=True, squeeze_me=True)
+
+
+def datenum2datetime(datenum):
+    '''Convert Matlab datenum to Python Datetime'''
+    from datetime import datetime,timedelta
+    return datetime.fromordinal(int(datenum)) + timedelta(days=datenum % 1) -\
+        timedelta(days=366)
+
 def compute_mld(data):
     '''
     mld criterion: depth of z|_(rho_10m +0.03kg/m3)

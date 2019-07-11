@@ -11,8 +11,6 @@ import seaborn as sns
 import xarray as xr
 from cartopy.mpl.gridliner import LATITUDE_FORMATTER, LONGITUDE_FORMATTER
 
-matplotlib.use('TkAgg')
-
 # # mapping
 
 # #mpl.rcParams.keys()
@@ -32,7 +30,7 @@ for i in snakemake.input:
     c = count()
     dat = xr.open_dataset(str(file))
     ax.plot(dat.lon, dat.lat, lw=2, label=dat.floatid)
-ax.set(ylabel='Latitude', xlabel='Longitude')
+# ax.set(ylabel='Latitude', xlabel='Longitude')
 # ax.set_title(f'Deployment {letter.upper()}')
 plt.legend(bbox_to_anchor=(1.08, 1), title='Floats')
 
@@ -64,6 +62,6 @@ ax.text(142.2, 43.5, 'Hokkaido', transform=ccrs.PlateCarree())
 ax.text(140.4, 39.7, 'Honshu', transform=ccrs.PlateCarree())
 # ax.gridlines()
 # os.path.join(project_path,str(snakemake.output))
-output_path = str(snakemake.output)
-plt.savefig(output_path)
+
+plt.savefig(str(snakemake.output))
 plt.close()

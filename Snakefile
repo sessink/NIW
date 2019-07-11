@@ -1,8 +1,13 @@
+import pandas as pd
+
 configfile: 'config.yaml'
 workdir: config['path']
 FLOATS = config['floats']
 filter_period = str(config['filter_period'])
 resample_period = config['resample_period']
+dates = pd.date_range(start='2017-11-01', end='2017-12-01', freq='6H').strftime("%d%m%y_%Hh")
+
+include: 'utils.smk'
 
 rule all:
     input:
@@ -22,13 +27,14 @@ rule all:
                float=FLOATS, filter_period=filter_period,
                resample_period=resample_period),
         expand('data/ml/mlall_{resample_period}_{filter_period}Tf.nc',
-               filter_period=filter_period, resample_period=resample_period)
+               filter_period=filter_period, resample_period=resample_period),
         # expand('figures/nio_maps_{float}_{filter_period}Tf.pdf',float=FLOATS,filter_period=filter_period),
-        # 'figures/float_traj.pdf',
+        expand('figures/weather_maps/weather_{date}.pdf',date=dates),
+        'figures/float_traj.pdf',
 
 rule convert_mat_files:
 	input:
-		'data/NIWmatdata/{float}_grid.mat'
+		'data/NIWmatdata/{float}.mat'
 	output:
 		'data/xarray/xr_{float}.nc'
 	script:
@@ -43,6 +49,15 @@ rule convert_metdata:
         'data/metdata/float_cfs_hourly.nc'
     script:
         'src/convert_metdata.py'
+
+rule convert_model_fields:
+    input:
+        'data/CFS/CFSv2_wind_rh_t_p_2016_2018.mat',
+        'data/CFS/land.nc'
+    output:
+        'data/CFS/CFSv2_wind_rh_t_p_2016_2018.nc',
+    script:
+        'src/convert_model_fields.py'
 
 rule resample:
 	input:
@@ -106,6 +121,14 @@ rule plt_ml_timeseries:
     script:
         'src/ml_timeseries.py'
 
+rule make_weather_maps:
+    input:
+        'data/CFS/CFSv2_wind_rh_t_p_2016_2018.nc'
+    output:
+        'figures/weather_maps/weather_{date}.pdf'
+    script:
+        'src/plot_weather.py'
+
 # rule nio_maps:
 #     input:
 #         'data/ml/ml_{float}_{filter_period}Tf.nc'
@@ -114,11 +137,11 @@ rule plt_ml_timeseries:
 #         'figures/nio_map.pdf'
 #     script:
 #         'src/nio_maps.py'
-#
-# rule make_map_all:
-#     input:
-#         expand('data/xarray/xr_{float}_grid.nc',float=FLOATS)
-#     output:
-#         'figures/float_traj.pdf'
-#     script:
-#         'src/make_maps.py'
+
+rule make_map_all:
+    input:
+        expand('data/xarray/xr_{float}_grid.nc',float=FLOATS)
+    output:
+        'figures/float_traj.pdf'
+    script:
+        'src/make_maps.py'

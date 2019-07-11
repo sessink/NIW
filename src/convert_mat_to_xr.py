@@ -8,20 +8,8 @@ import pandas as pd
 import scipy.io as sio
 import xarray as xr
 
+from tools import load_matfile,datenum2datetime
 # %%
-
-
-def load_matfile(file):
-    '''Read Matlab structure files and convert to numpy arrays'''
-    return sio.loadmat(file, struct_as_record=True, squeeze_me=True)
-
-
-def datenum2datetime(datenum):
-    '''Convert Matlab datenum to Python Datetime'''
-    return datetime.fromordinal(int(datenum)) + timedelta(days=datenum % 1) -\
-        timedelta(days=366)
-
-
 # vectorize datenum2datetime
 dn2dt_vec = np.vectorize(lambda x: datenum2datetime(x))
 
