@@ -33,7 +33,9 @@ def mlavg_wrapper(input, output):
 
     mlavg = integrate_columns(data)
 
+    mlavg = mlavg/(-1*data.mld)
     mlavg['mld'] = data.mld
+
     mlavg.to_netcdf(str(output))
 
 

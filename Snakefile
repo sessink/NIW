@@ -26,11 +26,12 @@ rule all:
         expand('figures/ml_timeseries/ml_timeseries_{float}__{resample_period}_{filter_period}Tf.pdf',
                float=FLOATS, filter_period=filter_period,
                resample_period=resample_period),
-        expand('data/ml/mlall_{resample_period}_{filter_period}Tf.nc',
-               filter_period=filter_period, resample_period=resample_period),
+        # expand('data/ml/mlall_{resample_period}_{filter_period}Tf.nc',
+        #        filter_period=filter_period, resample_period=resample_period),
         # expand('figures/nio_maps_{float}_{filter_period}Tf.pdf',float=FLOATS,filter_period=filter_period),
         expand('figures/weather_maps/weather_{date}.pdf',date=dates),
         'figures/float_traj.pdf',
+        expand("viz/{graph}.{fmt}", graph=["rulegraph", "dag"], fmt=["pdf", "png"]),
 
 rule convert_mat_files:
 	input:
@@ -100,17 +101,17 @@ rule compute_ml_avg:
 	script:
 		'src/compute_ml_avg.py'
 
-rule combine_ml_avg:
-    input:
-        expand('data/ml/ml_{float}_{resample_period}_{filter_period}Tf.nc',
-               float=FLOATS,resample_period=resample_period,
-               filter_period=filter_period)
-    output:
-        'data/ml/mlall_{resample_period}_{filter_period}Tf.nc'
-    benchmark:
-        repeat('benchmark/bench_{resample_period}_{filter_period}Tf.txt',3)
-    script:
-        'src/combine_ml_avg.py'
+# rule combine_ml_avg:
+#     input:
+#         expand('data/ml/ml_{float}_{resample_period}_{filter_period}Tf.nc',
+#                float=FLOATS,resample_period=resample_period,
+#                filter_period=filter_period)
+#     output:
+#         'data/ml/mlall_{resample_period}_{filter_period}Tf.nc'
+#     benchmark:
+#         repeat('benchmark/bench_{resample_period}_{filter_period}Tf.txt',3)
+#     script:
+#         'src/combine_ml_avg.py'
 
 rule plt_ml_timeseries:
     input:

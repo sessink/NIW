@@ -1,7 +1,3 @@
-rule utils:
-    input:
-        expand("viz/{graph}.{fmt}", graph=["rulegraph", "dag"], fmt=["pdf", "png"])
-
 rule graph:
     output:
         "viz/{graph,(dag|rulegraph)}.dot"

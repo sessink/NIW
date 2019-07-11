@@ -1,42 +1,31 @@
 # %% imports
-# import os,glob
-from datetime import datetime, timedelta
+# Standard Library
+# from datetime import datetime, timedelta
 
-import matplotlib as mpl
+# Scientific Computing
 import numpy as np
-import scipy.io as sio
-# import matplotlib.pyplot as plt
-import seaborn as sns
-# import pandas as pd
+# import scipy.io as sio
 import xarray as xr
 
-# import cmocean.cm as cm
+# Plotting
+import matplotlib as mpl
+import seaborn as sns
+
+# My Stuff
+from tools import datenum2datetime, load_matfile
 
 sns.set(style='ticks', context='paper')
 mpl.rc('figure', dpi=100, figsize=[10, 7])
 mpl.rc('savefig', dpi=500, bbox='tight')
 mpl.rc('legend', frameon=False)
 # %% define functions
-
-
-def load_matfile(file):
-    '''Read Matlab structure files and convert to numpy arrays'''
-    return sio.loadmat(file, struct_as_record=True, squeeze_me=True)
-
-
-def datenum2datetime(datenum):
-    '''Convert Matlab datenum to Python Datetime'''
-    return datetime.fromordinal(int(datenum)) +\
-        timedelta(days=datenum % 1) - timedelta(days=366)
-
-
 # vectorize datenum2datetime
 dn2dt_vec = np.vectorize(lambda x: datenum2datetime(x))
 
 
 def convert_metdata(input, output):
-    path = './data/metdata/float_cfs_hourly.mat'
-    data = load_matfile(path)
+    # path = './data/metdata/float_cfs_hourly.mat'
+    data = load_matfile(str(input))
 
     dsa = xr.Dataset({  # define wanted variables here!
         'lat': (['floatid', 'time'], data['lat_grid'][:6]),

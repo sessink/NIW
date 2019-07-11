@@ -6,9 +6,10 @@ def load_matfile(file):
 
 def datenum2datetime(datenum):
     '''Convert Matlab datenum to Python Datetime'''
-    from datetime import datetime,timedelta
+    from datetime import datetime, timedelta
     return datetime.fromordinal(int(datenum)) + timedelta(days=datenum % 1) -\
         timedelta(days=366)
+
 
 def compute_mld(data):
     '''
@@ -40,6 +41,7 @@ def exp_moving_avg(data, tau):
     '''
         Python implementation after Eckner (2019, unpublished)
     '''
+    import numpy as np
     out = np.zeros_like(data.u)
     out[0] = data.u[0]
     for j in range(2, len(data.time)):

@@ -1,10 +1,13 @@
 # %% imports
-import matplotlib as mpl
-import matplotlib.pyplot as plt
+# Scientific Computing
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import xarray as xr
+
+# Plotting
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import seaborn as sns
 from cmocean import cm
 
 # set up figure params
