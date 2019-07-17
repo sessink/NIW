@@ -12,7 +12,7 @@ from cmocean import cm
 
 # set up figure params
 sns.set(style='ticks', context='paper')
-mpl.rc('figure', dpi=100, figsize=[10, 15])
+mpl.rc('figure', dpi=100, figsize=[8.5, 11])
 mpl.rc('savefig', dpi=500, bbox='tight')
 mpl.rc('legend', frameon=False)
 
@@ -20,122 +20,118 @@ mpl.rc('legend', frameon=False)
 # %%
 def plot_timeseries(dat, met, float):
 
-    f, ax = plt.subplots(11, 1, sharex=True)
+    f, ax = plt.subplots(6, 1, sharex=True)
     if float != '7782b':
 
         met = met.sel(floatid=float)
+        met['tau'] = np.sqrt(met.tx**2 + met.ty**2)
         met.tx.plot(ax=ax[0], label=r'$\tau_x$')
         met.ty.plot(ax=ax[0], label=r'$\tau_y$')
+        met.tau.plot(ax=ax[0], label=r'$\tau$')
         ax[0].legend()
         ax[0].set_xlabel(None)
+        ax[0].set_ylabel(r'wind stress [Nm$-2$]')
 
-        met = met.resample(time='6h', skipna=True).mean()
+        met = met.resample(time='9h', skipna=True).mean()
         quiveropts = dict(headlength=0,
                           headwidth=1,
                           scale_units='y',
-                          scale=15,
+                          scale=1,
                           color='k')
-        ax[1].quiver(met.time.values, np.zeros(met.time.shape), met.tx, met.ty,
+        qv = ax[1].quiver(met.time.values, np.zeros(met.time.shape), met.tx, met.ty,met.tau,
                      **quiveropts)
+        plt.quiverkey(qv, 0.9, 0.8, 0.5, '0.5 Nm$^{-2}$', coordinates='axes')
         ax[1].set_xlabel(None)
+        ax[1].set_ylabel(r'wind stress vectors')
+        ax[1].set_ylim(-1,1)
 
     dat.mld.plot(ax=ax[2], label=r'mld (0.03kgm$^{-3}$ from $\rho_{10m}$)')
     ax[2].legend()
     ax[2].set_xlabel(None)
+    ax[2].set_ylabel('Mixed layer depth [m]')
 
-    dat.hke.plot(ax=ax[3],marker='.', label='total hke')
-    dat.hke_lowpass.plot(ax=ax[3],marker='.', label='lowpass hke')
+    dat.hke.plot(ax=ax[3],marker='.',lw=0, label='total hke')
+    dat.hke_lowpass.plot(ax=ax[3],marker='.',lw=0, label='lowpass hke')
+    dat.hke_resid.plot(ax=ax[3], label='resid hke')
+    dat.hke_ni.plot(ax=ax[3], label='ni hke')
     ax[3].legend()
     ax[3].set_xlabel(None)
+    ax[3].set_ylabel('HKE [m$^2$s$^2$]')
 
-    dat.hke_resid.plot(ax=ax[4], label='resid hke')
-    dat.hke_ni.plot(ax=ax[4], label='ni hke')
-    ax[4].legend()
-    ax[4].set_xlabel(None)
-
-    dat.SHKEdt_total.plot(ax=ax[5], label='total hke')
-    dat.SHKEdt_lowpass.plot(ax=ax[5], label='lowpass hke')
-    ax[5].legend()
-    ax[5].set_xlabel(None)
-
-    dat.SHKEdt_resid.plot(ax=ax[6], label='resid hke')
-    dat.SHKEdt_ni.plot(ax=ax[6], label='ni hke')
-    ax[6].legend()
-    ax[6].set_xlabel(None)
-
-
-    dat.dHKEdt_total.pipe(np.log10).plot(ax=ax[7],
+    dat.dHKEdt_total.pipe(np.abs).pipe(np.log10).plot(ax=ax[4],
                                          lw=0,
                                          marker='.',
                                          label='total dhke/dt')
-    dat.dHKEdt_lowpass.pipe(np.log10).plot(ax=ax[7],
+    dat.dHKEdt_lowpass.pipe(np.abs).pipe(np.log10).plot(ax=ax[4],
                                            lw=0,
                                            marker='.',
                                            label='lowpass dhke/dt')
-    ax[7].legend()
-    ax[7].set_xlabel(None)
-
-    dat.dHKEdt_resid.pipe(np.log10).plot(ax=ax[8],
-                                         lw=0,
+    dat.dHKEdt_resid.pipe(np.abs).pipe(np.log10).plot(ax=ax[4],
                                          marker='.',
                                          label='resid dhke/dt')
-    dat.dHKEdt_ni.pipe(np.log10).plot(ax=ax[8],
-                                      lw=0,
+    dat.dHKEdt_ni.pipe(np.abs).pipe(np.log10).plot(ax=ax[4],
                                       marker='.',
                                       label='ni dhke/dt')
-    ax[8].legend()
-    ax[8].set_xlabel(None)
+    ax[4].legend()
+    ax[4].set_xlabel(None)
+    ax[4].set_ylabel(r'$\frac{\partial HKE}{\partial t}$ [m$^2$s$^3$]')
 
-    dat.eps.pipe(np.log10).plot(ax=ax[9],
+    dat.eps.pipe(np.abs).pipe(np.log10).plot(ax=ax[5],
                                 marker='.',
-                                lw=0,
+                                lw=0.1,
                                 label=r'$log_{10}(\epsilon)$')
     # ax[7].set_ylim(-8,0)
-    ax[9].legend()
-    ax[9].set_xlabel(None)
+    ax[5].legend()
+    ax[5].set_xlabel(None)
+    ax[5].set_ylabel(r'$\epsilon$ [m$^2$s$^3$]')
 
-
-    dat.u_resid.plot(ax=ax[10],marker='.',label='total dhke/dt')
-    dat.v_resid.plot(ax=ax[10],marker='.',label='total dhke/dt')
-
-    ax[10].legend()
-    ax[10].set_xlabel(None)
-
-    ax[10].set_xlim(dat.mld.time.values.min(), dat.mld.time.values.max())
+    ax[-1].set_xlim(dat.mld.time.values.min(), dat.mld.time.values.max())
     plt.tight_layout()
-    plt.show()
-    # plt.savefig(str(output))
-
+    plt.subplots_adjust(hspace=0.1)
+    plt.savefig(f'figures/storms/nov2017/{float:s}.pdf')
+    plt.close()
 
 # %%
-infile = 'data/ml/ml_7784b_9h_6Tf.nc'
+def slice_metfile(metfile,timeslice):
+    met = xr.open_dataset(metfile)
+    stormmet = met.sel(time=timeslice)
+    return stormmet
+
+def read_float_mlavg(float, timeslice):
+    infile = f'data/ml/ml_{float:s}_9h_6Tf.nc'
+
+    data = xr.open_dataset(infile)
+
+
+    data['dHKEdt_resid'] = data.hke_resid.differentiate('time', datetime_unit='s')
+    data['dHKEdt_ni'] = data.hke_ni.differentiate('time', datetime_unit='s')
+    data['dHKEdt_lowpass'] = data.hke_lowpass.differentiate('time', datetime_unit='s')
+    data['dHKEdt_total'] = data.hke.differentiate('time', datetime_unit='s')
+
+
+    stormdat = data.sel(time=timeslice)
+
+
+    stormdat['SHKEdt_resid'] = ('time',
+                                cumtrapz(stormdat.hke_resid,
+                                         dx=9 * 3600,
+                                         initial=0))
+    stormdat['SHKEdt_ni'] = ('time',
+                             cumtrapz(stormdat.hke_ni, dx=9 * 3600, initial=0))
+    stormdat['SHKEdt_lowpass'] = ('time',
+                                  cumtrapz(stormdat.hke_lowpass,
+                                           dx=9 * 3600,
+                                           initial=0))
+    stormdat['SHKEdt_total'] = ('time',
+                                cumtrapz(stormdat.hke, dx=9 * 3600, initial=0))
+    return stormdat, stormmet
+
+# %%
 metfile = 'data/metdata/float_cfs_hourly.nc'
-data = xr.open_dataset(infile)
-met = xr.open_dataset(metfile)
+floatlist = ['7700b','7701b','7785b','7784b','7780b']
+timeslice = slice('2017-10-18', '2017-11-10')
 
-data['dHKEdt_resid'] = data.hke_resid.differentiate('time', datetime_unit='s')
-data['dHKEdt_ni'] = data.hke_ni.differentiate('time', datetime_unit='s')
-data['dHKEdt_lowpass'] = data.hke_lowpass.differentiate('time', datetime_unit='s')
-data['dHKEdt_total'] = data.hke.differentiate('time', datetime_unit='s')
-
-timeslice = slice('2017-10-20', '2017-11-10')
-
-stormdat = data.sel(time=timeslice)
-stormmet = met.sel(time=timeslice)
-
-stormdat['SHKEdt_resid'] = ('time',
-                            cumtrapz(stormdat.hke_resid,
-                                     dx=9 * 3600,
-                                     initial=0))
-stormdat['SHKEdt_ni'] = ('time',
-                         cumtrapz(stormdat.hke_ni, dx=9 * 3600, initial=0))
-stormdat['SHKEdt_lowpass'] = ('time',
-                              cumtrapz(stormdat.hke_lowpass,
-                                       dx=9 * 3600,
-                                       initial=0))
-stormdat['SHKEdt_total'] = ('time',
-                            cumtrapz(stormdat.hke, dx=9 * 3600, initial=0))
-
-# %%
-
-plot_timeseries(stormdat, stormmet, '7784b')
+stormmet = slice_metfile(metfile, timeslice)
+for float in floatlist:
+    stormdat, stormmet = read_float_mlavg(float, timeslice)
+    plot_timeseries(stormdat, stormmet, float)

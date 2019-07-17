@@ -7,39 +7,50 @@ filter_period = str(config['filter_period'])
 resample_period = config['resample_period']
 dates = pd.date_range(start='2017-11-01', end='2017-12-01', freq='6H').strftime("%d%m%y_%Hh")
 
-include: 'utils.smk'
+# include: 'utils.smk'
 
 rule all:
     input:
-        expand('data/ml/ml_{float}_{resample_period}_{filter_period}Tf.nc',
-               float=FLOATS, filter_period=filter_period,
-               resample_period=resample_period),
-        expand('figures/summary/summary_{float}_{resample_period}_{filter_period}Tf.pdf',
-               float=FLOATS, filter_period=filter_period,
-               resample_period=resample_period),
-        expand('figures/ni_currents/compare_ni_{float}_{resample_period}_{filter_period}Tf.pdf',
-               float=FLOATS, filter_period=filter_period,
-               resample_period=resample_period),
-        expand('figures/ni_currents/compare_ni_hke_{float}_{resample_period}_{filter_period}Tf.pdf',
-               float=FLOATS, filter_period=filter_period,
-               resample_period=resample_period),
-        expand('figures/ml_timeseries/ml_timeseries_{float}__{resample_period}_{filter_period}Tf.pdf',
-               float=FLOATS, filter_period=filter_period,
-               resample_period=resample_period),
+        expand('data/xarray/qc_{float}.nc',float=FLOATS),
+        expand('figures/qc/vel_qc_{float}.pdf',float=FLOATS)
+        # expand('data/ml/ml_{float}_{resample_period}_{filter_period}Tf.nc',
+        #        float=FLOATS, filter_period=filter_period,
+        #        resample_period=resample_period),
+        # expand('figures/summary/summary_{float}_{resample_period}_{filter_period}Tf.pdf',
+        #        float=FLOATS, filter_period=filter_period,
+        #        resample_period=resample_period),
+        # expand('figures/ni_currents/compare_ni_{float}_{resample_period}_{filter_period}Tf.pdf',
+        #        float=FLOATS, filter_period=filter_period,
+        #        resample_period=resample_period),
+        # expand('figures/ni_currents/compare_ni_hke_{float}_{resample_period}_{filter_period}Tf.pdf',
+        #        float=FLOATS, filter_period=filter_period,
+        #        resample_period=resample_period),
+        # expand('figures/ml_timeseries/ml_timeseries_{float}__{resample_period}_{filter_period}Tf.pdf',
+        #        float=FLOATS, filter_period=filter_period,
+        #        resample_period=resample_period),
         # expand('data/ml/mlall_{resample_period}_{filter_period}Tf.nc',
         #        filter_period=filter_period, resample_period=resample_period),
         # expand('figures/nio_maps_{float}_{filter_period}Tf.pdf',float=FLOATS,filter_period=filter_period),
-        expand('figures/weather_maps/weather_{date}.pdf',date=dates),
-        'figures/float_traj.pdf',
-        expand("viz/{graph}.{fmt}", graph=["rulegraph", "dag"], fmt=["pdf", "png"]),
+        # expand('figures/weather_maps/weather_{date}.pdf',date=dates),
+        # 'figures/float_traj.pdf',
+        # expand("viz/{graph}.{fmt}", graph=["rulegraph", "dag"], fmt=["pdf", "png"]),
 
 rule convert_mat_files:
 	input:
-		'data/NIWmatdata/{float}.mat'
+		'data/NIWmatdata/{float}_grid.mat'
 	output:
 		'data/xarray/xr_{float}.nc'
 	script:
-		'src/convert_mat_to_xr.py'
+		'src/convert_mat2xr.py'
+
+rule qc:
+    input:
+        'data/xarray/xr_{float}.nc'
+    output:
+        'data/xarray/qc_{float}.nc',
+        'figures/qc/vel_qc_{float}.pdf'
+    script:
+        'src/qc.py'
 
 rule convert_metdata:
     input:
@@ -141,7 +152,7 @@ rule make_weather_maps:
 
 rule make_map_all:
     input:
-        expand('data/xarray/xr_{float}_grid.nc',float=FLOATS)
+        expand('data/xarray/xr_{float}.nc',float=FLOATS)
     output:
         'figures/float_traj.pdf'
     script:
