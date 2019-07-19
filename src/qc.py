@@ -49,10 +49,10 @@ def qc(infile, outfile, figurepath):
     data['dudz'] = 0.5 * (data['du1dz'] + data['du2dz'])
     data['dvdz'] = 0.5 * (data['dv1dz'] + data['dv2dz'])
 
-
-    data = data.drop(['W','RotP','verr1','verr2',
-                      'u1','u2','v1','v2',
-                      'eps1','eps2','chi1','chi2'])
+    data = data.drop([
+        'W', 'RotP', 'verr1', 'verr2', 'u1', 'u2', 'v1', 'v2', 'eps1', 'eps2',
+        'chi1', 'chi2'
+    ])
     data.to_netcdf(str(outfile))
 
     f, ax = plt.subplots(2, 2, sharex=True, sharey=True)
@@ -97,7 +97,6 @@ def qc(infile, outfile, figurepath):
 # %% MAIN
 qc(snakemake.input, snakemake.output[0], snakemake.output[1])
 
-
 # %% testing
 # infile = 'data/xarray/xr_7784b.nc'
 #
@@ -121,7 +120,6 @@ qc(snakemake.input, snakemake.output[0], snakemake.output[1])
 #
 # data['u'] = 0.5 * (data['u1'] + data['u2'])
 # data['v'] = 0.5 * (data['v1'] + data['v2'])
-
 
 # # %%
 # f, ax = plt.subplots(2, 2,sharex=True)
