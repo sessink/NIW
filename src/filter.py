@@ -2,7 +2,7 @@
 import numpy as np
 # import pandas as pd
 import xarray as xr
-from scipy.signal import butter, filtfilt, lfilter
+from scipy.signal import butter, filtfilt, lfilter, iirfilter
 
 # Plotting
 import matplotlib.pyplot as plt
@@ -24,22 +24,18 @@ plt.style.use('sebstyle')
 
 
 # %%
-def butter_lowpass(cutoff, fs, order=5):
+
+def butter_lowpass_filter(data, cutoff, fs, order):
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
     b, a = butter(order, normal_cutoff, btype='lowpass', analog=False)
-    return b, a
-
-
-def butter_lowpass_filter(data, cutoff, fs, order=5):
-    b, a = butter_lowpass(cutoff, fs, order=order)
     # y = filtfilt(b, a, data)
-    y = lfilter(b, a, data)
+    y = filtfilt(b, a, data)
     return y
 
 
 def make_test_plots(data, outfile):
-    f, axs = plt.subplots(6, 1)
+    f, axs = plt.subplots(6, 1, sharex=True)
 
     vars = ['u','u_lowpass','u_resid','v','v_lowpass','v_resid']
     for ax,var in zip(axs,vars):
@@ -49,6 +45,7 @@ def make_test_plots(data, outfile):
                                                vmin=-1,
                                                vmax=1,
                                                cmap='RdBu_r')
+        ax.set_xlabel(None)
     plt.savefig(outfile)
 
 
@@ -79,20 +76,14 @@ def filter_variables(data, resample_period, filter_period,
                              coords=[dat.time],
                              dims=['time']))
     ds = xr.concat(bucket, data.z)
-
-    # new variable
-    # data_resampled[var + '_lowpass'] = ds
-    # data_resampled[var + '_resid'] = data_resampled[var] - \
-    #                                  data_resampled[var + '_lowpass']
     return ds
-
 
 def filter_wrapper(input, figureoutput, dataoutput, resample_period,
                    filter_period):
     '''
     Apply to all floata
     '''
-    order = 6
+    order = 3
     data = xr.open_dataset(str(input))
 
     # filter u and v
