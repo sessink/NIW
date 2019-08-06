@@ -22,7 +22,7 @@ def save_as_xr(input, output):
         and save as netcdf last updated: june 11, 2019
         '''
     a = load_matfile(str(input))
-
+    output = str(output)
     # u = 0.5 * (a['A']['u1'].flatten()[0] + a['A']['u2'].flatten()[0])
     # v = 0.5 * (a['A']['v1'].flatten()[0] + a['A']['v2'].flatten()[0])
     # dudz = 0.5 * (a['A']['du1dz'].flatten()[0] + a['A']['du2dz'].flatten()[0])
@@ -56,6 +56,9 @@ def save_as_xr(input, output):
         'verr1': (['z', 'time'], a['A']['verr1'].flatten()[0]),
         'verr2': (['z', 'time'], a['A']['verr2'].flatten()[0]),
 
+        'kT1': (['z', 'time'], a['A']['kT1'].flatten()[0]),
+        'kT2': (['z', 'time'], a['A']['kT2'].flatten()[0]),
+
         'T': (['z', 'time'], a['A']['T'].flatten()[0]),
         'S': (['z', 'time'], a['A']['S'].flatten()[0]),
         'n2': (['z', 'time'], a['A']['N2'].flatten()[0])},
@@ -66,7 +69,7 @@ def save_as_xr(input, output):
                 'lon': (['time'], a['A']['lon'].flatten()[0]),
                 'time': a['A']['Jday_gmt'].flatten()[0].astype(float)},
 
-        attrs={'floatid': a['A']['float'].flatten()[0]}
+        attrs={'floatid': output.split('_')[1].split('.')[0]}
     )
     # remove nans
     ds = ds.dropna(dim='time', how='all')

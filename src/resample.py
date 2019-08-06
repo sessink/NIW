@@ -1,22 +1,20 @@
+# Scientific Computing
 import numpy as np
-# import pandas as pd
 import xarray as xr
 
-# from scipy.signal import butter, filtfilt
-# import gsw
+# Plotting
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# import matplotlib.pyplot as plt
-# import matplotlib as mpl
-# import seaborn as sns
-# sns.set(style='ticks', context='paper')
-# mpl.rc('figure', dpi=120, figsize=[10, 7])
-# mpl.rc('savefig', dpi=500, bbox='tight')
-# mpl.rc('legend', frameon=False)
+sns.set(style='ticks', context='paper')
+plt.style.use('sebstyle')
 
 
 # %% FUNCTIONS
 def compute_ni_currents(data):
-
+    '''
+    Compute NI currents by taking 0.5*(u_t - u_t+1)
+    '''
     uarray = np.zeros(data.u.shape)
     varray = np.zeros(data.u.shape)
     for t, _ in enumerate(data.time[:-1]):
@@ -28,12 +26,28 @@ def compute_ni_currents(data):
     return data
 
 
-def resample_wrapper(input, output, resample_period):
+def make_test_plots(data, outfile):
+    f, ax = plt.subplots(2, 1)
+    data.u.dropna(dim='z', how='all').plot(ylim=(-500, 0),
+                                           ax=ax[0],
+                                           rasterized=True,
+                                           vmin=-1,
+                                           vmax=1,
+                                           cmap='RdBu_r')
+    data.v.dropna(dim='z', how='all').plot(ylim=(-500, 0),
+                                           ax=ax[1],
+                                           rasterized=True,
+                                           vmin=-1,
+                                           vmax=1,
+                                           cmap='RdBu_r')
+    plt.savefig(outfile)
+
+
+def resample_wrapper(infile, figureoutput, dataoutput, resample_period):
     '''
-    Apply to all floata
+    Apply to all floats
     '''
-    file = str(input)
-    data = xr.open_dataset(file)
+    data = xr.open_dataset(str(infile))
     data['latl'] = data.lat
     data['lonl'] = data.lon
     data_resampled = data.resample(time=resample_period).mean().transpose()
@@ -44,9 +58,10 @@ def resample_wrapper(input, output, resample_period):
     # compute near inertial currents (Ren-Chieh's idea)
     data_resampled = compute_ni_currents(data_resampled)
 
-    data_resampled.to_netcdf(str(output))
+    make_test_plots(data_resampled, str(figureoutput))
+    data_resampled.to_netcdf(str(dataoutput))
 
 
 # %%
-resample_wrapper(snakemake.input, snakemake.output,
+resample_wrapper(snakemake.input, snakemake.output[0], snakemake.output[1],
                  snakemake.config['resample_period'])

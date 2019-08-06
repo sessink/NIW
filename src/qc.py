@@ -15,19 +15,93 @@ mpl.rc('figure', dpi=100, figsize=[8.5, 5])
 mpl.rc('savefig', dpi=500, bbox='tight')
 mpl.rc('legend', frameon=False)
 
+xr.__version__
+
 
 # %%
-def qc(infile, outfile, figurepath):
-    # from scipy.signal import medfilt2d
+def qc_turbulence(data):
+    '''
+    clean chi and eps with RC's scripts
+    '''
 
+    def str2date(string, format='%Y,%m,%d'):
+        from datetime import datetime
+        string = string.flatten()[0]
+        return np.datetime64(datetime.strptime(string, format))
+
+    dtdzmax = 1.5e-5
+    chimin = 5e-5
+    kTmin = 1e-1
+    lb = 0.5  # for ratios
+    ub = 2
+
+    floats = np.array([
+        '7779a', '7781a', '7783a', '7786a', '7787a', '7788a', '7700b', '7701b',
+        '7780b', '7784b', '7785b', '7786b'
+    ])
+    print(data.floatid)
+    fi = np.where(floats == data.floatid)[0][0]
+    good_chi1, good_chi2 = np.load('data/xarray/good_chi.npy')
+
+    # 1) thresholds for chi
+    data['dtdz1'] = np.sqrt(0.5 * data.chi1 / data.kT1)
+    data['dtdz2'] = np.sqrt(0.5 * data.chi2 / data.kT2)
+
+    bad = (data.dtdz1 <= dtdzmax) | (data.chi1 >= chimin) | (data.kT1 >= kTmin)
+    data[['chi1', 'kT1', 'eps1']].where(bad)
+
+    bad = (data.dtdz2 <= dtdzmax) | (data.chi2 >= chimin) | (data.kT2 >= kTmin)
+    data[['chi2', 'kT2', 'eps2']].where(bad)
+
+    # 2) periods of functioning chi sensor
+    tmin, tmax = str2date(good_chi1[fi, 0]), str2date(good_chi1[fi, 1])
+    bad = (data.time < tmin) | (data.time > tmax)
+    data[['chi1', 'kT1', 'eps1']].where(bad)
+
+    tmin, tmax = str2date(good_chi2[fi, 0]), str2date(good_chi2[fi, 1])
+    bad = (data.time < tmin) | (data.time > tmax)
+    data[['chi2', 'kT2', 'eps2']].where(bad)
+
+    # 3) compare two sensors
+    def combine_fun(array1, array2, lb=lb, ub=ub):
+        # FIXME: could use concat here, too, to take nanmean of two arrays
+        ratio = array1 / array2
+        bad = (ratio <= lb) | (ratio >= ub)
+        chi1fin = np.isfinite(array1)
+        chi2fin = np.isfinite(array2)
+
+        a1 = np.minimum(array1.where(bad & chi1fin),
+                        array2.where(bad & chi1fin))
+        a2 = np.minimum(array1.where(bad & chi2fin),
+                        array2.where(bad & chi2fin))
+        a3 =avg_funs(array1.where(~bad),array2.where(~bad))
+
+        combined_array = a1.combine_first(a2)
+        combined_array = combined_array.combine_first(a3)
+
+        return combined_array
+
+    data['kT'] = combine_fun(data.kT1, data.kT2)
+    data['chi'] = combine_fun(data.chi1, data.chi2)
+    data['eps'] = combine_fun(data.eps1, data.eps2)
+
+    # FIXME: include zscore outlier checking
+    zscore = (data.eps - data.eps.mean())/data.eps.std(ddof=-1)
+    data.eps.where(zscore<3)
+
+    data = data.drop(
+        ['eps1', 'eps2', 'chi1', 'chi2', 'kT1', 'kT2', 'dtdz1', 'dtdz2'])
+    return data
+
+def avg_funs(array1,array2):
+    '''take average taking into account nans'''
+    concat = xr.concat([array1,array2],dim='temp')
+    return concat.mean(dim='temp')
+
+def qc_velocity(data):
     Wmin = 0.05
     RotPmax = 20
     verrmax = 0.03
-
-    data = xr.open_dataset(str(infile))
-    dataorig = data.copy()
-    dataorig['u'] = 0.5 * (dataorig['u1'] + dataorig['u2'])
-    dataorig['v'] = 0.5 * (dataorig['v1'] + dataorig['v2'])
 
     uv_mask = (np.abs(data.W) > Wmin) & (data.RotP < RotPmax)
     u1_mask = uv_mask & (data.verr1 < verrmax)
@@ -38,23 +112,16 @@ def qc(infile, outfile, figurepath):
     data['u2'] = data.u2.where(u2_mask)
     data['v2'] = data.v2.where(u2_mask)
 
-    data['u'] = 0.5 * (data['u1'] + data['u2'])
-    data['v'] = 0.5 * (data['v1'] + data['v2'])
+    data['u'] = avg_funs(data['u1'],data['u2'])
+    data['v'] = avg_funs(data['v1'],data['v2'])
+    data['dudz'] = avg_funs(data['du1dz'],data['du2dz'])
+    data['dvdz'] = avg_funs(data['dv1dz'],data['dv2dz'])
 
-    # data['u'] = (('z','time'),medfilt2d(data.u))
-    # data['v'] =(('z','time'),medfilt2d(data.v))
+    data = data.drop(['W', 'RotP', 'verr1', 'verr2', 'u1', 'u2', 'v1', 'v2'])
+    return data
 
-    data['chi'] = 0.5 * (data['chi1'] + data['chi2'])
-    data['eps'] = 0.5 * (data['eps1'] + data['eps2'])
-    data['dudz'] = 0.5 * (data['du1dz'] + data['du2dz'])
-    data['dvdz'] = 0.5 * (data['dv1dz'] + data['dv2dz'])
 
-    data = data.drop([
-        'W', 'RotP', 'verr1', 'verr2', 'u1', 'u2', 'v1', 'v2', 'eps1', 'eps2',
-        'chi1', 'chi2'
-    ])
-    data.to_netcdf(str(outfile))
-
+def plot_velocities(data, dataorig, figurepath):
     f, ax = plt.subplots(2, 2, sharex=True, sharey=True)
     data.u.plot(ax=ax[0, 0],
                 ylim=(-500, 0),
@@ -73,19 +140,19 @@ def qc(infile, outfile, figurepath):
     ax[0, 1].set_title('QC v')
     ax[0, 1].set_xlabel(None)
     ax[0, 1].set_ylabel(None)
-    dataorig.u.plot(ax=ax[1, 0],
-                    ylim=(-500, 0),
-                    vmin=-1,
-                    vmax=1,
-                    cmap='RdBu_r',
-                    rasterized=True)
+    dataorig.u1.plot(ax=ax[1, 0],
+                     ylim=(-500, 0),
+                     vmin=-1,
+                     vmax=1,
+                     cmap='RdBu_r',
+                     rasterized=True)
     ax[1, 0].set_title('raw u')
-    dataorig.v.plot(ax=ax[1, 1],
-                    ylim=(-500, 0),
-                    vmin=-1,
-                    vmax=1,
-                    cmap='RdBu_r',
-                    rasterized=True)
+    dataorig.v1.plot(ax=ax[1, 1],
+                     ylim=(-500, 0),
+                     vmin=-1,
+                     vmax=1,
+                     cmap='RdBu_r',
+                     rasterized=True)
     ax[1, 1].set_title('raw v')
     ax[1, 1].set_ylabel(None)
     plt.tight_layout()
@@ -94,8 +161,51 @@ def qc(infile, outfile, figurepath):
     plt.close()
 
 
+def plot_epsilon(data, dataorig, figurepath):
+    f, ax = plt.subplots(2, 1, sharex=True)
+    data.eps.pipe(np.log10).plot(ax=ax[0],
+                                 ylim=(-500, 0),
+                                 vmin=-10,
+                                 vmax=-2,
+                                 cmap='viridis',
+                                 rasterized=True)
+    ax[0].set_title('QC eps')
+    ax[0].set_xlabel(None)
+
+    dataorig.eps1.pipe(np.log10).plot(ax=ax[1],
+                                      ylim=(-500, 0),
+                                      vmin=-10,
+                                      vmax=-2,
+                                      cmap='viridis',
+                                      rasterized=True)
+    ax[1].set_title('raw eps')
+
+    plt.tight_layout()
+    plt.subplots_adjust(wspace=0.1)
+    plt.savefig(str(figurepath))
+    plt.close()
+
+
+# %%
+def qc(infile, outfile, figurepath1, figurepath2):
+    # from scipy.signal import medfilt2d
+
+    # infile = 'data/xarray/xr_7784b.nc'
+
+    data = xr.open_dataset(str(infile))
+    dataorig = data.copy()
+
+    data = qc_velocity(data)
+    data = qc_turbulence(data)
+
+    data.to_netcdf(str(outfile))
+    plot_velocities(data, dataorig, figurepath1)
+    plot_epsilon(data, dataorig, figurepath2)
+
+
 # %% MAIN
-qc(snakemake.input, snakemake.output[0], snakemake.output[1])
+qc(snakemake.input, snakemake.output[0], snakemake.output[1],
+   snakemake.output[2])
 
 # %% testing
 # infile = 'data/xarray/xr_7784b.nc'

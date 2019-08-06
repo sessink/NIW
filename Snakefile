@@ -1,4 +1,7 @@
+# Scientific Computing
 import pandas as pd
+
+
 
 configfile: 'config.yaml'
 workdir: config['path']
@@ -11,17 +14,25 @@ include: 'utils.smk'
 
 rule all:
     input:
-        # expand('data/xarray/qc_{float}.nc',float=FLOATS),
+        expand('data/xarray/xr_{float}.nc',float=FLOATS),
+        expand('data/xarray/qc_{float}.nc',float=FLOATS),
         expand('figures/qc/vel_qc_{float}.pdf',float=FLOATS),
-        expand('figures/summary/summary_{float}_{resample_period}_{filter_period}Tf.pdf',
-               float=FLOATS, filter_period=filter_period,
-               resample_period=resample_period),
-        expand('figures/ni_currents/compare_ni_hke_{float}_{resample_period}_{filter_period}Tf.pdf',
-               float=FLOATS, filter_period=filter_period,
-               resample_period=resample_period),
-        expand('figures/ml_timeseries/ml_timeseries_{float}__{resample_period}_{filter_period}Tf.pdf',
-               float=FLOATS, filter_period=filter_period,
-               resample_period=resample_period),
+        expand('figures/qc/eps_qc_{float}.pdf',float=FLOATS),
+        expand('figures/resampled/resample_{float}_{resample_period}.pdf',float=FLOATS,resample_period=resample_period),
+        expand('data/resampled/resample_{float}_{resample_period}.nc',float=FLOATS,resample_period=resample_period),
+        expand('figures/summary/summary_{float}_{resample_period}_{filter_period}Tf.pdf',float=FLOATS,
+               filter_period=filter_period,resample_period=resample_period),
+
+        expand('figures/filtered/filt_{float}_{resample_period}_{filter_period}Tf.pdf',float=FLOATS,
+               filter_period=filter_period,resample_period=resample_period),
+        expand('data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc',float=FLOATS,
+               filter_period=filter_period,resample_period=resample_period),
+        # expand('figures/ni_currents/compare_ni_hke_{float}_{resample_period}_{filter_period}Tf.pdf',
+        #        float=FLOATS, filter_period=filter_period,
+        #        resample_period=resample_period),
+        # expand('figures/ml_timeseries/ml_timeseries_{float}__{resample_period}_{filter_period}Tf.pdf',
+        #        float=FLOATS, filter_period=filter_period,
+        #        resample_period=resample_period),
         # expand('figures/nio_maps_{float}_{filter_period}Tf.pdf',float=FLOATS,filter_period=filter_period),
         # expand('figures/weather_maps/weather_{date}.pdf',date=dates),
         # 'figures/float_traj.pdf',
@@ -40,7 +51,8 @@ rule qc:
         'data/xarray/xr_{float}.nc'
     output:
         'data/xarray/qc_{float}.nc',
-        'figures/qc/vel_qc_{float}.pdf'
+        'figures/qc/vel_qc_{float}.pdf',
+        'figures/qc/eps_qc_{float}.pdf'
     script:
         'src/qc.py'
 
@@ -64,20 +76,22 @@ rule convert_model_fields:
         'src/convert_model_fields.py'
 
 rule resample:
-	input:
-		'data/xarray/qc_{float}.nc'
-	output:
-		'data/resampled/resample_{float}_{resample_period}.nc'
-	script:
-		'src/resample.py'
+    input:
+        'data/xarray/qc_{float}.nc',
+    output:
+        'figures/resampled/resample_{float}_{resample_period}.pdf',
+        'data/resampled/resample_{float}_{resample_period}.nc'
+    script:
+        'src/resample.py'
 
 rule filter:
-	input:
-		'data/resampled/resample_{float}_{resample_period}.nc'
-	output:
-		'data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc'
-	script:
-		'src/filter.py'
+    input:
+        'data/resampled/resample_{float}_{resample_period}.nc'
+    output:
+        'figures/filtered/filt_{float}_{resample_period}_{filter_period}Tf.pdf',
+        'data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc',
+    script:
+        'src/filter.py'
 
 rule summary_plts:
     input:
