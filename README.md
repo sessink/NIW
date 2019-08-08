@@ -2,4 +2,4 @@
 Snakemake shenanigans: Take one!
 
 
-![DAG of workflow.](./dag.png)
+![DAG of workflow.](./viz/rulegraph.png)
