@@ -88,7 +88,7 @@ def plot_timeseries(dat, met, float):
     ax[-1].set_xlim(dat.mld.time.values.min(), dat.mld.time.values.max())
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.1)
-    plt.savefig(f'figures/storms/nov2017/{float:s}.pdf')
+    plt.savefig(f'figures/storms/nov152017/{float:s}.pdf')
     plt.close()
 
 # %%
@@ -98,7 +98,7 @@ def slice_metfile(metfile,timeslice):
     return stormmet
 
 def read_float_mlavg(float, timeslice):
-    infile = f'data/ml/ml_{float:s}_9h_6Tf.nc'
+    infile = f'data/ml/ml_{float:s}_3h_2Tf.nc'
 
     data = xr.open_dataset(infile)
 

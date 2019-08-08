@@ -74,7 +74,7 @@ def qc_turbulence(data):
                         array2.where(bad & chi1fin))
         a2 = np.minimum(array1.where(bad & chi2fin),
                         array2.where(bad & chi2fin))
-        a3 =avg_funs(array1.where(~bad),array2.where(~bad))
+        a3 = avg_funs(array1.where(~bad), array2.where(~bad))
 
         combined_array = a1.combine_first(a2)
         combined_array = combined_array.combine_first(a3)
@@ -86,17 +86,19 @@ def qc_turbulence(data):
     data['eps'] = combine_fun(data.eps1, data.eps2)
 
     # FIXME: include zscore outlier checking
-    zscore = (data.eps - data.eps.mean())/data.eps.std(ddof=-1)
-    data.eps.where(zscore<3)
+    zscore = (data.eps - data.eps.mean()) / data.eps.std(ddof=-1)
+    data.eps.where(zscore < 3)
 
     data = data.drop(
         ['eps1', 'eps2', 'chi1', 'chi2', 'kT1', 'kT2', 'dtdz1', 'dtdz2'])
     return data
 
-def avg_funs(array1,array2):
+
+def avg_funs(array1, array2):
     '''take average taking into account nans'''
-    concat = xr.concat([array1,array2],dim='temp')
+    concat = xr.concat([array1, array2], dim='temp')
     return concat.mean(dim='temp')
+
 
 def qc_velocity(data):
     Wmin = 0.05
@@ -112,12 +114,15 @@ def qc_velocity(data):
     data['u2'] = data.u2.where(u2_mask)
     data['v2'] = data.v2.where(u2_mask)
 
-    data['u'] = avg_funs(data['u1'],data['u2'])
-    data['v'] = avg_funs(data['v1'],data['v2'])
-    data['dudz'] = avg_funs(data['du1dz'],data['du2dz'])
-    data['dvdz'] = avg_funs(data['dv1dz'],data['dv2dz'])
+    data['u'] = avg_funs(data['u1'], data['u2'])
+    data['v'] = avg_funs(data['v1'], data['v2'])
+    data['dudz'] = avg_funs(data['du1dz'], data['du2dz'])
+    data['dvdz'] = avg_funs(data['dv1dz'], data['dv2dz'])
 
-    data = data.drop(['W', 'RotP', 'verr1', 'verr2', 'u1', 'u2', 'v1', 'v2'])
+    data = data.drop([
+        'W', 'RotP', 'verr1', 'verr2', 'u1', 'u2', 'v1', 'v2', 'du1dz',
+        'du2dz', 'dv1dz', 'dv2dz'
+    ])
     return data
 
 

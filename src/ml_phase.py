@@ -85,13 +85,14 @@ def read_float_mlavg(float, timeslice):
     import gsw
     from datetime import timedelta, datetime
 
-    infile = f'data/ml/ml_{float:s}_9h_6Tf.nc'
+    infile = f'data/ml/ml_{float:s}_3h_2Tf.nc'
 
     data = xr.open_dataset(infile)
 
     data['ang'] = np.arctan2(data.v_resid, data.u_resid)
 
     ref_time = datetime.strptime('1/1/2000', '%m/%d/%Y')
+
     t = (data.time - data.time[0]) / pd.to_timedelta(1, unit='s')
     f = gsw.f(40)
     data['u_br'] = np.real(data.u_resid * np.exp(1j * f * t))

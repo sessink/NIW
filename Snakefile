@@ -16,11 +16,16 @@ rule all:
     input:
         expand('data/xarray/xr_{float}.nc',float=FLOATS),
         expand('data/xarray/qc_{float}.nc',float=FLOATS),
+        expand('data/xarray/qc_ww_{float}.nc',float=FLOATS),
         expand('figures/qc/vel_qc_{float}.pdf',float=FLOATS),
         expand('figures/qc/eps_qc_{float}.pdf',float=FLOATS),
         expand('figures/resampled/resample_{float}_{resample_period}.pdf',float=FLOATS,resample_period=resample_period),
         expand('data/resampled/resample_{float}_{resample_period}.nc',float=FLOATS,resample_period=resample_period),
         expand('figures/summary/summary_{float}_{resample_period}_{filter_period}Tf.pdf',float=FLOATS,
+               filter_period=filter_period,resample_period=resample_period),
+        expand('figures/phase/prof_ts_{float}_{resample_period}_{filter_period}Tf.pdf',float=FLOATS,
+               filter_period=filter_period,resample_period=resample_period),
+        expand('figures/phase/depth_ts_{float}_{resample_period}_{filter_period}Tf.pdf',float=FLOATS,
                filter_period=filter_period,resample_period=resample_period),
 
         expand('figures/filtered/filt_{float}_{resample_period}_{filter_period}Tf.pdf',float=FLOATS,
@@ -66,6 +71,15 @@ rule convert_metdata:
     script:
         'src/convert_metdata.py'
 
+rule compute_wind_work:
+    input:
+        'data/xarray/qc_{float}.nc',
+        'data/metdata/float_cfs_hourly.nc'
+    output:
+        'data/xarray/qc_ww_{float}.nc'
+    script:
+        'src/compute_wind_work.py'
+
 rule convert_model_fields:
     input:
         'data/CFS/CFSv2_wind_rh_t_p_2016_2018.mat',
@@ -101,14 +115,24 @@ rule summary_plts:
     script:
         'src/summary_plots.py'
 
-rule compare_ni:
+rule ml_profile_ts:
     input:
         'data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc'
     output:
-        'figures/ni_currents/compare_ni_{float}_{resample_period}_{filter_period}Tf.pdf',
-        'figures/ni_currents/compare_ni_hke_{float}_{resample_period}_{filter_period}Tf.pdf'
+        'figures/phase/prof_ts_{float}_{resample_period}_{filter_period}Tf.pdf',
+        'figures/phase/depth_ts_{float}_{resample_period}_{filter_period}Tf.pdf',
+
     script:
-        'src/compare_ni.py'
+        'src/ml_profile_ts.py'
+
+# rule compare_ni:
+#     input:
+#         'data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc'
+#     output:
+#         'figures/ni_currents/compare_ni_{float}_{resample_period}_{filter_period}Tf.pdf',
+#         'figures/ni_currents/compare_ni_hke_{float}_{resample_period}_{filter_period}Tf.pdf'
+#     script:
+#         'src/compare_ni.py'
 
 rule compute_ml_avg:
 	input:
