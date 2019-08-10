@@ -1,7 +1,3 @@
-# %% imports
-# Standard Library
-# from datetime import datetime, timedelta
-
 # Scientific Computing
 import numpy as np
 # import scipy.io as sio
@@ -9,6 +5,7 @@ import xarray as xr
 
 # Plotting
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import seaborn as sns
 
 # My Stuff
@@ -24,8 +21,10 @@ dn2dt_vec = np.vectorize(lambda x: datenum2datetime(x))
 
 
 def convert_metdata(input, output):
-    # path = './data/metdata/float_cfs_hourly.mat'
-    data = load_matfile(str(input))
+    '''RC saved this weirdly, so need to read the two experiments
+    separately and then merge'''
+    path = './data/metdata/float_cfs_hourly.mat'
+    data = load_matfile(str(path))
 
     dsa = xr.Dataset({  # define wanted variables here!
         'lat': (['floatid', 'time'], data['lat_grid'][:6]),
@@ -39,8 +38,8 @@ def convert_metdata(input, output):
         'dswrf': (['floatid', 'time'], data['dswrf_grid'][:6]),
         'dlwrf': (['floatid', 'time'], data['dlwrf_grid'][:6]),
     },
-        coords={'floatid': data['Floats'][:6].flatten(),
-                'time': data['Jday_gmt_grid'][0].flatten()}
+        coords={'floatid': data['Floats'][:6],
+                'time': data['Jday_gmt_grid'][0,:]}
     )
 
     dsb = xr.Dataset({  # define wanted variables here!
@@ -55,8 +54,8 @@ def convert_metdata(input, output):
         'dswrf': (['floatid', 'time'], data['dswrf_grid'][6:]),
         'dlwrf': (['floatid', 'time'], data['dlwrf_grid'][6:]),
     },
-        coords={'floatid': data['Floats'][6:].flatten(),
-                'time': data['Jday_gmt_grid'][6].flatten()}
+        coords={'floatid': data['Floats'][6:],
+                'time': data['Jday_gmt_grid'][6,:]}
     )
 
     dsa['lw'] = dsa.dlwrf - dsa.ulwrf
@@ -69,19 +68,16 @@ def convert_metdata(input, output):
     dsb['Qnet'] = -dsb.qlat - dsb.qsens + dsb.sw + dsb.lw
     dsb = dsb.drop(['dlwrf', 'ulwrf', 'dswrf', 'uswrf'])
 
-    dsa = dsa.dropna(dim='time', how='any')
+    dsa = dsa.dropna(dim='time', how='all')
     dsa = dsa.assign_coords(time=(dn2dt_vec(dsa.time)))
     dsa['tau'] = 0.5 * (dsa.tx**2 + dsa.ty**2)
 
-    dsb = dsb.dropna(dim='time', how='any')
+    dsb = dsb.dropna(dim='time', how='all')
     dsb = dsb.assign_coords(time=(dn2dt_vec(dsb.time)))
     dsb['tau'] = 0.5 * (dsb.tx**2 + dsb.ty**2)
 
     merge = xr.merge([dsa, dsb])
-
-    dsa.to_netcdf(output[0])
-    dsb.to_netcdf(output[1])
-    merge.to_netcdf(output[2])
+    merge.to_netcdf(str(output))
 
 
 convert_metdata(snakemake.input, snakemake.output)
@@ -90,6 +86,10 @@ convert_metdata(snakemake.input, snakemake.output)
 
 # path = './data/metdata/float_cfs_hourly.mat'
 # data = load_matfile(path)
+#
+# data['Jday_gmt_grid'][].shape
+#
+# datenum2datetime( np.nanmax( data['Jday_gmt_grid'][6,:].flatten() ))
 #
 # data
 

@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from cmocean import cm
 
+from tools import alphabet
+
 sns.set(style='ticks', context='paper')
 mpl.rc('figure', dpi=120, figsize=[8.5, 11])
 mpl.rc('savefig', dpi=500, bbox='tight')
@@ -16,12 +18,7 @@ mpl.rc('legend', frameon=False)
 
 
 # %% FUNCTIONs
-def alphabet(ax):
-    alphabet = 'ABCDEFGHIJKLMNOPQRSTUVQXYZ'
-    for j, axx in enumerate(ax):
-        axx.annotate(alphabet[j], (0, 1.02),
-                     xycoords='axes fraction',
-                     weight='bold')
+
 
 
 def plot_prof_ts(data, outfile):

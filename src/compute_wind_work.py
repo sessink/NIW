@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from cmocean import cm
 
+from tools import compute_mld
+
 sns.set(style='ticks', context='paper')
 mpl.rc('figure', dpi=120, figsize=[10, 5])
 mpl.rc('savefig', dpi=500, bbox='tight')
@@ -44,6 +46,7 @@ def compute_wind_work(infile, outfile):
     metfloat['tauydotv'] = metfloat.v * metfloat.ty
     metfloat['utau'] = metfloat.tauxdotu + metfloat.tauydotv
 
+    dat['mettime']=metfloat.time.values
     dat['tauxdotu'] = ('mettime', metfloat['tauxdotu'])
     dat['tauydotv'] = ('mettime', metfloat['tauydotv'])
     dat['utau'] = ('mettime', metfloat['utau'])
@@ -52,6 +55,9 @@ def compute_wind_work(infile, outfile):
     dat['lw'] = ('mettime', metfloat['lw'])
     dat['sw'] = ('mettime', metfloat['sw'])
     dat['Qnet'] = ('mettime', metfloat['Qnet'])
+    dat = dat.assign_coords(mettime=dat.mettime)
+
+    dat = compute_mld(dat)
 
     dat.to_netcdf(str(outfile))
 

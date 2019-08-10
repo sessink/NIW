@@ -1,8 +1,6 @@
 # Scientific Computing
 import pandas as pd
 
-
-
 configfile: 'config.yaml'
 workdir: config['path']
 FLOATS = config['floats']
@@ -19,8 +17,10 @@ rule all:
         expand('data/xarray/qc_ww_{float}.nc',float=FLOATS),
         expand('figures/qc/vel_qc_{float}.pdf',float=FLOATS),
         expand('figures/qc/eps_qc_{float}.pdf',float=FLOATS),
-        expand('figures/resampled/resample_{float}_{resample_period}.pdf',float=FLOATS,resample_period=resample_period),
-        expand('data/resampled/resample_{float}_{resample_period}.nc',float=FLOATS,resample_period=resample_period),
+        expand('figures/resampled/resample_{float}_{resample_period}.pdf',
+               float=FLOATS,resample_period=resample_period),
+        expand('data/resampled/resample_{float}_{resample_period}.nc',
+               float=FLOATS,resample_period=resample_period),
         expand('figures/summary/summary_{float}_{resample_period}_{filter_period}Tf.pdf',float=FLOATS,
                filter_period=filter_period,resample_period=resample_period),
         expand('figures/phase/prof_ts_{float}_{resample_period}_{filter_period}Tf.pdf',float=FLOATS,
@@ -38,10 +38,13 @@ rule all:
         expand('figures/ml_timeseries/ml_timeseries_{float}__{resample_period}_{filter_period}Tf.pdf',
                float=FLOATS, filter_period=filter_period,
                resample_period=resample_period),
+        expand('figures/budget/terms_ts_{float}_{resample_period}_{filter_period}Tf.pdf',
+               float=FLOATS, filter_period=filter_period,
+               resample_period=resample_period),
         # expand('figures/nio_maps_{float}_{filter_period}Tf.pdf',float=FLOATS,filter_period=filter_period),
         # expand('figures/weather_maps/weather_{date}.pdf',date=dates),
         # 'figures/float_traj.pdf',
-        # expand("viz/{graph}.{fmt}", graph=["rulegraph", "dag"], fmt=["pdf", "png"]),
+        expand("viz/{graph}.{fmt}", graph=["rulegraph", "dag"], fmt=["pdf", "png"]),
 
 rule convert_mat_files:
 	input:
@@ -65,8 +68,6 @@ rule convert_metdata:
     input:
         'data/metdata/float_cfs_hourly.mat'
     output:
-        'data/metdata/float_cfs_hourly_2016.nc',
-        'data/metdata/float_cfs_hourly_2017.nc',
         'data/metdata/float_cfs_hourly.nc'
     script:
         'src/convert_metdata.py'
@@ -125,6 +126,23 @@ rule ml_profile_ts:
     script:
         'src/ml_profile_ts.py'
 
+rule compute_ml_avg:
+	input:
+		'data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc'
+	output:
+		'data/ml/ml_{float}_{resample_period}_{filter_period}Tf.nc'
+	script:
+		'src/compute_ml_avg.py'
+
+rule compare_terms:
+    input:
+        'data/ml/ml_{float}_{resample_period}_{filter_period}Tf.nc',
+        'data/xarray/qc_ww_{float}.nc'
+    output:
+        'figures/budget/terms_ts_{float}_{resample_period}_{filter_period}Tf.pdf',
+    script:
+        'src/compare_terms.py'
+
 # rule compare_ni:
 #     input:
 #         'data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc'
@@ -134,13 +152,7 @@ rule ml_profile_ts:
 #     script:
 #         'src/compare_ni.py'
 
-rule compute_ml_avg:
-	input:
-		'data/filtered/filt_{float}_{resample_period}_{filter_period}Tf.nc'
-	output:
-		'data/ml/ml_{float}_{resample_period}_{filter_period}Tf.nc'
-	script:
-		'src/compute_ml_avg.py'
+
 
 # rule combine_ml_avg:
 #     input:

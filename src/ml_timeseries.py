@@ -1,4 +1,3 @@
-# %% imports
 # Scientific Computing
 import numpy as np
 import pandas as pd
@@ -44,7 +43,7 @@ def plot_timeseries(input, output):
     met = xr.open_dataset(str(input[1]))
     float = str(input[0]).split('_')[1]
 
-    f, ax = plt.subplots(5, 1, sharex=True)
+    f, ax = plt.subplots(4, 1, sharex=True)
     if float != '7782b':
 
         met = met.sel(floatid=float)
@@ -65,19 +64,20 @@ def plot_timeseries(input, output):
 
     dat.hke.plot(ax=ax[2], label='total hke')
     dat.hke_lowpass.plot(ax=ax[2], label='lowpass hke')
+    dat.hke_resid.plot(ax=ax[2], label='resid hke')
     ax[2].legend()
     ax[2].set_xlabel(None)
+    ax[2].set_yscale('log')
+    # dat.hke_ni.plot(ax=ax[3], label='ni hke')
+    # ax[3].set_yscale('log')
+    # ax[3].legend()
+    # ax[3].set_xlabel(None)
 
-    dat.hke_resid.plot(ax=ax[3], label='resid hke')
-    dat.hke_ni.plot(ax=ax[3], label='ni hke')
+    dat.mld.plot(ax=ax[3], label=r'mld (0.03kgm$^{-3}$ from $\rho_{10m}$)')
     ax[3].legend()
     ax[3].set_xlabel(None)
 
-    dat.mld.plot(ax=ax[4], label=r'mld (0.03kgm$^{-3}$ from $\rho_{10m}$)')
-    ax[4].legend()
-    ax[4].set_xlabel(None)
-
-    ax[4].set_xlim(dat.mld.time.values.min(), dat.mld.time.values.max())
+    ax[3].set_xlim(dat.mld.time.values.min(), dat.mld.time.values.max())
     plt.tight_layout()
     plt.savefig(str(output))
 

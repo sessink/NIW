@@ -51,3 +51,10 @@ def exp_moving_avg(data, tau):
         out[j] = out[j - 1] * w + data.u[j] * \
             (1 - w2) + data.u[j - 1] * (w2 - w)
     return out
+
+def alphabet(ax):
+    alphabet = 'ABCDEFGHIJKLMNOPQRSTUVQXYZ'
+    for j, axx in enumerate(ax):
+        axx.annotate(alphabet[j], (0, 1.02),
+                     xycoords='axes fraction',
+                     weight='bold')
