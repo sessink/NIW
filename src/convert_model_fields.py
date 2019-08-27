@@ -14,7 +14,7 @@ dn2dt_vec = np.vectorize(lambda x: datenum2datetime(x))
 
 def convert_cfs(infile, landfile, outfile):
     data = load_matfile(str(infile))
-    
+
     ds = xr.Dataset({  # define wanted variables here!
         'pres': (['lon', 'lat', 'time'], data['pres_sfc']),
         'temp': (['lon', 'lat', 'time'], data['tmp_sfc']),

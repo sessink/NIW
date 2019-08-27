@@ -9,37 +9,34 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from cmocean import cm
 
+from tools import str2date
+
 # set up figure params
 sns.set(style='ticks', context='paper')
 mpl.rc('figure', dpi=100, figsize=[8.5, 5])
 mpl.rc('savefig', dpi=500, bbox='tight')
 mpl.rc('legend', frameon=False)
 
-xr.__version__
-
-
 # %%
 def qc_turbulence(data):
     '''
     clean chi and eps with RC's scripts
     '''
+    # infile = 'data/xarray/xr_7784b.nc'
+    # data = xr.open_dataset(str(infile))
 
-    def str2date(string, format='%Y,%m,%d'):
-        from datetime import datetime
-        string = string.flatten()[0]
-        return np.datetime64(datetime.strptime(string, format))
-
-    dtdzmax = 1.5e-5
-    chimin = 5e-5
-    kTmin = 1e-1
-    lb = 0.5  # for ratios
+    dtdzmin = 1.5e-3
+    chimax = 5e-5
+    kTmax = 1e-1
+    zmin = -10
+    # for ratios
+    lb = 0.5
     ub = 2
 
     floats = np.array([
-        '7779a', '7781a', '7783a', '7786a', '7787a', '7788a', '7700b', '7701b',
-        '7780b', '7784b', '7785b', '7786b'
+        '7779a', '7781a', '7783a', '7786a', '7787a', '7788a',
+        '7700b', '7701b','7780b', '7784b', '7785b', '7786b'
     ])
-    print(data.floatid)
     fi = np.where(floats == data.floatid)[0][0]
     good_chi1, good_chi2 = np.load('data/xarray/good_chi.npy')
 
@@ -47,26 +44,34 @@ def qc_turbulence(data):
     data['dtdz1'] = np.sqrt(0.5 * data.chi1 / data.kT1)
     data['dtdz2'] = np.sqrt(0.5 * data.chi2 / data.kT2)
 
-    bad = (data.dtdz1 <= dtdzmax) | (data.chi1 >= chimin) | (data.kT1 >= kTmin)
-    data[['chi1', 'kT1', 'eps1']].where(bad)
+    bad = (data.dtdz1 <= dtdzmin) | (data.chi1 >= chimax) | (data.kT1 >= kTmax) | (data.z > zmin)
+    data['chi1'] = data['chi1'].where(~bad)
+    data['kT1'] = data['kT1'].where(~bad)
+    data['eps1'] = data['eps1'].where(~bad)
 
-    bad = (data.dtdz2 <= dtdzmax) | (data.chi2 >= chimin) | (data.kT2 >= kTmin)
-    data[['chi2', 'kT2', 'eps2']].where(bad)
+    bad = (data.dtdz2 <= dtdzmin) | (data.chi2 >= chimax) | (data.kT2 >= kTmax) | (data.z > zmin)
+    data['chi2'] = data['chi2'].where(~bad)
+    data['kT2'] = data['kT2'].where(~bad)
+    data['eps2'] = data['eps2'].where(~bad)
 
     # 2) periods of functioning chi sensor
     tmin, tmax = str2date(good_chi1[fi, 0]), str2date(good_chi1[fi, 1])
     bad = (data.time < tmin) | (data.time > tmax)
-    data[['chi1', 'kT1', 'eps1']].where(bad)
+    data['chi1'] = data['chi1'].where(~bad)
+    data['kT1'] = data['kT1'].where(~bad)
+    data['eps1'] = data['eps1'].where(~bad)
 
     tmin, tmax = str2date(good_chi2[fi, 0]), str2date(good_chi2[fi, 1])
     bad = (data.time < tmin) | (data.time > tmax)
-    data[['chi2', 'kT2', 'eps2']].where(bad)
+    data['chi2'] = data['chi2'].where(~bad)
+    data['kT2'] = data['kT2'].where(~bad)
+    data['eps2'] = data['eps2'].where(~bad)
 
     # 3) compare two sensors
     def combine_fun(array1, array2, lb=lb, ub=ub):
-        # FIXME: could use concat here, too, to take nanmean of two arrays
         ratio = array1 / array2
         bad = (ratio <= lb) | (ratio >= ub)
+
         chi1fin = np.isfinite(array1)
         chi2fin = np.isfinite(array2)
 
@@ -76,18 +81,12 @@ def qc_turbulence(data):
                         array2.where(bad & chi2fin))
         a3 = avg_funs(array1.where(~bad), array2.where(~bad))
 
-        combined_array = a1.combine_first(a2)
-        combined_array = combined_array.combine_first(a3)
-
-        return combined_array
+        concat = xr.concat([a1, a2, a3], dim='temp')
+        return concat.mean(dim='temp')
 
     data['kT'] = combine_fun(data.kT1, data.kT2)
     data['chi'] = combine_fun(data.chi1, data.chi2)
     data['eps'] = combine_fun(data.eps1, data.eps2)
-
-    # FIXME: include zscore outlier checking
-    zscore = (data.eps - data.eps.mean()) / data.eps.std(ddof=-1)
-    data.eps.where(zscore < 3)
 
     data = data.drop(
         ['eps1', 'eps2', 'chi1', 'chi2', 'kT1', 'kT2', 'dtdz1', 'dtdz2'])
@@ -103,15 +102,16 @@ def avg_funs(array1, array2):
 def qc_velocity(data):
     Wmin = 0.05
     RotPmax = 20
-    verrmax = 0.03
+    verrmax = 0.02
 
+    # where cond:  what to keep!
     uv_mask = (np.abs(data.W) > Wmin) & (data.RotP < RotPmax)
     u1_mask = uv_mask & (data.verr1 < verrmax)
     u2_mask = uv_mask & (data.verr2 < verrmax)
 
     data['u1'] = data.u1.where(u1_mask)
-    data['v1'] = data.u1.where(u1_mask)
     data['u2'] = data.u2.where(u2_mask)
+    data['v1'] = data.u1.where(u1_mask)
     data['v2'] = data.v2.where(u2_mask)
 
     data['u'] = avg_funs(data['u1'], data['u2'])
@@ -214,12 +214,20 @@ qc(snakemake.input, snakemake.output[0], snakemake.output[1],
 
 # %% testing
 # infile = 'data/xarray/xr_7784b.nc'
-#
-# Wmin = 0.05
-# RotPmax = 20
-# verrmax = 0.02
-#
+# #
+# # Wmin = 0.05
+# # RotPmax = 20
+# # verrmax = 0.02
+# # dtdzmax = 1.5e-5
+# # chimin = 5e-5
+# # kTmin = 1e-1
+# # lb = 0.5  # for ratios
+# # ub = 2
+# #
 # data = xr.open_dataset(str(infile))
+#
+# test = qc_turbulence(data)
+#
 # dataorig = data.copy()
 # dataorig['u'] = 0.5 * (dataorig['u1'] + dataorig['u2'])
 # dataorig['v'] = 0.5 * (dataorig['v1'] + dataorig['v2'])
@@ -228,6 +236,11 @@ qc(snakemake.input, snakemake.output[0], snakemake.output[1],
 # u1_mask = uv_mask & (data.verr1 < verrmax)
 # u2_mask = uv_mask & (data.verr2 < verrmax)
 #
+# data['dtdz1'] = np.sqrt(0.5 * data.chi1 / data.kT1)
+# bad = (data.dtdz1 <= dtdzmax) | (data.chi1 >= chimin) | (data.kT1 >= kTmin)
+# data[['chi1', 'kT1', 'eps1']] = data[['chi1', 'kT1', 'eps1']].where(bad)
+#
+# data.eps1.notnull().sum()
 # data['u1'] = data.u1.where(u1_mask)
 # data['v1'] = data.u1.where(u1_mask)
 # data['u2'] = data.u2.where(u2_mask)

@@ -3,13 +3,21 @@ def load_matfile(file):
     import scipy.io as sio
     return sio.loadmat(file, struct_as_record=True, squeeze_me=True)
 
+def str2date(string, format='%Y,%m,%d'):
+    '''convert any date string into something comparable to
+       xarray's date index (np.datetime64)
+    '''
+    from datetime import datetime
+    import numpy as np
+    if type(string) is not str:
+        string = string.flatten()[0]
+    return np.datetime64(datetime.strptime(string, format))
 
 def datenum2datetime(datenum):
     '''Convert Matlab datenum to Python Datetime'''
     from datetime import datetime, timedelta
     return datetime.fromordinal(int(datenum)) + timedelta(days=datenum % 1) -\
         timedelta(days=366)
-
 
 def compute_mld(data):
     '''
