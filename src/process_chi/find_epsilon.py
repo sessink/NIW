@@ -5,7 +5,6 @@ import glob
 import numpy as np
 import pandas as pd
 import xarray as xr
-import tables
 
 # Plotting
 import matplotlib as mpl
@@ -13,8 +12,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from cmocean import cm
 
-# My Stuff
-from src.tools import alphabet, str2date, load_matfile
+import tables
+from src.tools import alphabet, load_matfile, str2date
 
 # set up figure params
 sns.set(style='ticks', context='paper', palette='colorblind')
@@ -26,71 +25,280 @@ mpl.rc('legend', frameon=False)
 def convert_tmsdata(chi_dir):
     dat = load_matfile(chi_dir)
 
+    f_cps = 0.5 * (dat['flabeg'] + dat['flaend'])
+    time = pd.to_datetime(dat['uxt'], unit='s')
 
-    f_cps = 0.5*(dat['flabeg']+dat['flaend'])
-    time = pd.to_datetime(dat['uxt'],unit='s')
-
-    dat = xr.Dataset({
-        'sla1' : (['time','f_cps'],dat['Sla1']),
-        'sla2' : (['time','f_cps'],dat['Sla1']),
-        'logavgoff': dat['logavgoff'],
-        'logavgsf': dat['logavgsf'],
-        'nobs':dat['nobs']
-    },
-    coords={'time':time,'f_cps':f_cps}
-    )
+    dat = xr.Dataset(
+        {
+            'sla1': (['time', 'f_cps'], dat['Sla1']),
+            'sla2': (['time', 'f_cps'], dat['Sla1']),
+            'logavgoff': dat['logavgoff'],
+            'logavgsf': dat['logavgsf'],
+            'nobs': dat['nobs']
+        },
+        coords={
+            'time': time,
+            'f_cps': f_cps
+        })
 
     return dat
+
 
 def convert_ctddata(ctd_dir):
+    import gsw
     dat = load_matfile(ctd_dir)
-    dat['CTD']['jday_gmt'].flatten()[0].shape
-    dat['CTD']['T'].flatten()[0].shape
+    time = pd.to_datetime(dat['UXT'], unit='s')
 
-    dat['CTD']['P'].flatten()[0]
-    dat = xr.Dataset({
-    },
-    coords={'time':time,'f_cps':f_cps}
-    )
+    dat = xr.Dataset(
+        {
+            'T': ('time', dat['T']),
+            'S': ('time', dat['S']),
+            'p': ('time', dat['P'])
+        },
+        coords={
+            'time': time,
+        })
 
-    return dat
+    # TODO: need to check units when integrating!
+    dat['sigma'] = ('time', gsw.sigma0(dat['S'], dat['T']) + 1000)
+    dat['z'] = -dat.p
+    dat['w'] = dat.z.differentiate('time', datetime_unit='s')
+    temp = dat.swap_dims({'time': 'z'})
+    temp['N2'] = -9.81 * temp.sigma.differentiate('z') / 1025
+    temp['dTdz'] = temp.T.differentiate('z')
 
-# %% read blocks
-# FIXME: Blocks??
-chi_dir = 'data/chi/ema-7786b-0030-tms.mat'
-dat = convert_tmsdata(chi_dir)
+    return temp.swap_dims({'z': 'time'})
 
-floatid = hpid
-kzmin = 20; kzmax = 400; threshold = 4;
-Chi = chiprofile_fun(floatid,hpid,chi_data_dir,kzmin,kzmax,plotting,threshold);
+def H2ADCfun(Hz):
+    ''' H2 ADC transfer function
+    '''
 
-# %% 1) convert realtime-transmitted scaled spectrum (sla)
-# to digitized voltage Spectrum
-jblock =0
-
-dat['slad1'] = (dat.sla1 - dat.logavgoff)/dat.logavgsf
-dat['slad2'] = (dat.sla2 - dat.logavgoff)/dat.logavgsf
-
-# %% 2) convert to raw spectrum of temperature
-beta = 25; Vref = 4; Inet = 0.8;
-scale2 = (beta * Vref * 2**(-23) / Inet)**2
-dat['rawTsp1'] = 10**(dat.slad1[jblock,:]/10)*scale2
-dat['rawTsp2'] = 10**(dat.slad2[jblock,:]/10)*scale2
-
-# %% 3) get T,N,P,W, and dT/dz from ctd
-# TODO: which CTD data to use?
-ctd_dir = 'data/NIWmatdata/7786b_grid.mat'
-data = load_matfile(ctd_dir)
-
-data
+    Fc5 = 120
+    Fc3 = 210  # in Hz
+    sinc5 = np.sin(np.pi * Hz / Fc5) / (np.pi * Hz / Fc5)
+    sinc3 = np.sin(np.pi * Hz / Fc3) / (np.pi * Hz / Fc3)
+    H = (sinc5**5) * (sinc3**3)
+    return H**2
 
 
-data = xr.open_dataset(ctd_dir)
-data['dTdz'] = data.T.differentiate('z')
-data
-data['w'] = data.z.differentiate('time')
+def H2FP07fun(Hz, U):
+    ''' H2 Fp07 transfer function
 
-# %% 4) compute transfer functions
-# %% 5) remove noise Spectrum
-# %% 6) convert temperature frequency spectrum to wavenumber Spectrum
-# %% 7) compute chi, kT, and eps1
+        Hz is frequency in Hz
+        U is velocity in m/s
+    '''
+    tau = 0.006 * U**(-0.5)
+    return (1 + (2 * np.pi * Hz * tau)**2)**(-1)
+
+
+def H2preampfun(Hz):
+    ''' H2 Preamp transfer function
+    '''
+    Fc1 = 339
+    Fc2 = 339
+    Gd = 0.965
+    # in Hz
+    H2_1 = (1 - (Hz**2) / Fc1 / Fc2)**2
+    H2_2 = (Hz / Fc1 + Hz / Fc2 + 2 * np.pi * Hz * Gd)**2
+    H2_3 = (1 + (Hz / Fc1)**2) * (1 + (Hz / Fc2)**2)
+    return H2_1 + H2_2 / H2_3
+
+
+def remove_noise_sp(tms, threshold):
+    # TODO: Empirical, check against raw spectrum
+    # noisesp = 1.0e-11 * [1+(f/130)**3]**2
+    noisesp = noise_sp(tms)
+    tms['corrTsp1_cps'] = tms.corrTsp1_cps.where(tms.corrTsp1_cps/(threshold * noisesp) > 1, 0)
+    tms['corrTsp2_cps'] = tms.corrTsp2_cps.where(tms.corrTsp2_cps/(threshold * noisesp) > 1, 0)
+    return tms
+
+def noise_sp(tms):
+    return 1e-11 * (1 + (tms.f_cps / 20)**3)**2
+
+def compute_batchelor_sp(tms):
+    '''
+    Batchelor temperature gradient spectrum
+
+    reference: Oakey, 1982
+    adapted from: RC Lien, 1992
+    '''
+    from scipy.special import erfc
+
+    D = 1.4e-7
+    nu = 1.2e-6
+    q = 3.7
+
+    kb = (tms.eps1 / nu / D**2)**(0.25)
+    a = np.sqrt(2 * q) * tms.k_rpm / kb
+    uppera = []
+    for ai in a:
+        uppera.append(erfc(ai / np.sqrt(2)) * np.sqrt(0.5 * np.pi))
+    g = 2 * np.pi * a * (np.exp(-0.5 * a**2) - a * np.array(uppera))
+    tms['batchelorsp1'] = np.sqrt(0.5 * q) * (tms.chi1 /
+                                              (kb * D)) * g / (2 * np.pi)
+
+    kb = (tms.eps2 / nu / D**2)**(0.25)
+    a = np.sqrt(2 * q) * tms.k_rpm / kb
+    uppera = []
+    for ai in a:
+        uppera.append(erfc(ai / np.sqrt(2)) * np.sqrt(0.5 * np.pi))
+    g = 2 * np.pi * a * (np.exp(-0.5 * a**2) - a * np.array(uppera))
+    tms['batchelorsp2'] = np.sqrt(0.5 * q) * (tms.chi2 /
+                                              (kb * D)) * g / (2 * np.pi)
+    return tms
+
+
+def chiprofile(tms, ctd):
+    ''' Procedure to calculate chi from EM-APEX float
+
+    see: RC's write-up "EM-APEX Turbulence Measurements"
+    '''
+    from scipy.interpolate import interp1d
+
+    # % 1) convert realtime-transmitted scaled spectrum (sla)
+    # to digitized voltage Spectrum
+    tms['slad1'] = (tms.sla1 - tms.logavgoff) / tms.logavgsf
+    tms['slad2'] = (tms.sla2 - tms.logavgoff) / tms.logavgsf
+
+    # % 2) convert to raw spectrum of temperature
+    beta = 25
+    Vref = 4  # volt
+    Inet = 0.8
+    scale2 = (beta * Vref / (2**23*Inet))**2
+    tms['rawTsp1'] = 10**(tms.slad1 / 10) * scale2
+    tms['rawTsp2'] = 10**(tms.slad2 / 10) * scale2
+
+    # % 3) get background T,N,P,W, and dT/dz from ctd
+    tms['p'] = ctd.p.interp(time=tms.time)
+    tms['N2'] = ctd.N2.interp(time=tms.time)
+    tms['N'] = np.abs(np.sqrt(tms['N2']))
+    tms['T'] = ctd.T.interp(time=tms.time)
+    tms['dTdz'] = ctd.dTdz.interp(time=tms.time)
+    tms['w'] = np.abs(ctd.w.interp(time=tms.time))
+
+    tms['k_cpm'] = tms.f_cps / tms.w
+    tms['f_rps'] = tms.f_cps * 2 * np.pi
+    tms['k_rpm'] = tms.f_rps / tms.w
+
+    # % 4) compute transfer functions and compute corrected T spectrum
+    tms['H2adc'] = H2ADCfun(tms.f_cps)
+    tms['H2preamp'] = H2preampfun(tms.f_cps)
+    tms['H2fp07'] = H2FP07fun(tms.f_cps, tms.w)
+    tms['H2total_cps'] = tms.H2adc * tms.H2preamp * tms.H2fp07
+    tms['corrTsp1_cps'] = tms.rawTsp1 / tms.H2total_cps
+    tms['corrTsp2_cps'] = tms.rawTsp2 / tms.H2total_cps
+
+    # % 5) remove noise Spectrum
+    threshold = 4
+    tms = remove_noise_sp(tms, threshold)
+
+    # % 6) convert temperature frequency spectrum to wavenumber Spectrum
+    tms['corrTsp1_rpm'] = tms.corrTsp1_cps * tms.w / (2 * np.pi)
+    tms['corrdTdzsp1_rpm'] = tms.k_rpm**2 * tms.corrTsp1_rpm
+
+    tms['corrTsp2_rpm'] = tms.corrTsp2_cps * tms.w / (2 * np.pi)
+    tms['corrdTdzsp2_rpm'] = tms.k_rpm**2 * tms.corrTsp2_rpm
+
+    # % 7) compute chi, kT, and eps1
+    kzmin = 20
+    kzmax = 400
+    gamma = 0.2
+    D = 1.4e-7
+
+    # QUESTION: most values are k_rpm >> 400, is that right?
+    tms = tms.swap_dims({'f_cps': 'k_rpm'})
+    condition = (tms.k_rpm <= kzmax) & (tms.k_rpm >= kzmin)
+
+    if condition.sum() >= 3:
+        tms['chi1'] = 6*D*np.max( tms.corrdTdzsp1_rpm.integrate('k_rpm') )
+        tms['chi2'] = 6*D*np.max( tms.corrdTdzsp2_rpm.integrate('k_rpm') )
+    else:
+        tms['chi1'] = np.nan
+        tms['chi2'] = np.nan
+
+    tms['kt1'] = 0.5 * tms.chi1 / tms.dTdz**2
+    tms['eps1'] = tms.kt1 * tms.N2 / gamma
+
+    tms['kt2'] = 0.5 * tms.chi2 / tms.dTdz**2
+    tms['eps2'] = tms.kt2 * tms.N2 / gamma
+
+    tms = compute_batchelor_sp(tms)
+    return tms
+
+
+# %% MAIN
+chi_dir = 'data/chi/ema-7786b-0200-tms.mat'
+tms = convert_tmsdata(chi_dir)
+ctd_dir = 'data/chi/ema-7786b-0200-ctd.mat'
+ctd = convert_ctddata(ctd_dir)
+
+turb = []
+for jblock in range(tms.nobs.values):
+    tms_block = tms.isel(time=jblock)
+    tms_block = chiprofile(tms_block, ctd)
+    tms_block = tms_block.swap_dims({'k_rpm':'f_cps'})
+    turb.append(tms_block)
+
+turb = xr.concat(turb,dim='time')
+
+# %% Plotting
+blocks = np.arange(0,turb.time.size,10)
+
+for i in blocks:
+    f = plt.figure(figsize=(8,20))
+
+    ax0 = f.add_subplot(4,1,1)
+    temp = turb.isel(time=i)
+    ax0.plot(temp.f_cps,temp.H2adc,label='H2adc')
+    ax0.plot(temp.f_cps,temp.H2fp07,label='H2fp07')
+    ax0.plot(temp.f_cps,temp.H2preamp,label='H2preamp')
+    ax0.plot(temp.f_cps,temp.H2total_cps,label='H2total')
+    ax0.set_xscale('log')
+    ax0.set_yscale('log')
+    ax0.set_xlabel('Frequency [Hz]')
+    ax0.set_ylabel(r'Transfer function squared H^2')
+    ax0.axvline(2e1)
+    ax0.axvline(4e2)
+    ax0.legend()
+
+    ax1 = f.add_subplot(4,1,2,sharex=ax0)
+    ax1.plot(temp.f_cps,temp.rawTsp1,label='raw')
+    ax1.plot(temp.f_cps,temp.corrTsp1_cps,label='corrected')
+    ax1.plot(temp.f_cps,noise_sp(temp),ls='--',label='noise')
+    ax1.set_xlabel('Frequency [Hz]')
+    ax1.set_ylabel(r'Raw and Corrected $\Phi_T$ [C$^2$ Hz$^{-1}$]')
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.axvline(2e1)
+    ax1.axvline(4e2)
+    ax1.legend()
+
+    ax3 = f.add_subplot(4,1,3,sharex=ax2)
+    ax3.plot(temp.k_rpm,temp.corrdTdzsp1_rpm,label=r'$\Phi_{\partial_z T}^1$',color='C0')
+    # ax3.plot(temp.k_rpm,temp.corrdTdzsp2_rpm,marker='+',label=r'$\Phi_{\partial_z T}^2$')
+    ax3.plot(temp.k_rpm,temp.batchelorsp2,ls='--',label=r'Batchelor',color='C1')
+    ax3.plot(temp.k_rpm,temp.corrTsp1_rpm,label=r'Corrected $\Phi_T$(k_z)',color='C2')
+    ax3.set_xlabel('k$_z$ [m$^{-1}$]')
+    ax3.set_ylabel(r'Corrected $\Phi_{\partial_z T}$ [C$^2$ m$^{-1}$]')
+    ax3.set_xscale('log')
+    ax3.set_yscale('log')
+    ax3.axvline(2e1)
+    ax3.axvline(4e2)
+    ax3.set_ylim(1e-9,1e-2)
+    ax3.legend()
+
+    ax4 = ax3.twinx()
+    ax4.plot(temp.k_rpm,temp.k_rpm*temp.corrdTdzsp1_rpm,color='C3')
+    # ax4.plot(temp.k_rpm,temp.k_rpm*temp.corrdTdzsp2_rpm,marker='+')
+    ax4.plot(temp.k_rpm,temp.k_rpm*temp.batchelorsp2,ls='--',color='C4')
+    ax4.plot(temp.k_rpm,temp.k_rpm*temp.corrTsp1_rpm,label=r'Corrected $\Phi_T$(k_z)',color='C2')
+    ax4.set_xlabel('k$_z$ [m$^{-1}$]')
+    ax4.set_ylabel(r'Corrected $k_z\Phi_{\partial_z T}$ [C$^2$ m$^{-1}$]')
+    ax4.set_xscale('log')
+    ax4.set_yscale('log')
+    ax4.axvline(2e1)
+    ax4.axvline(4e2)
+    ax4.set_ylim(1e-9,1e-2)
+
+    plt.savefig(f'figures/chi_calculation/0chi_t{i:03d}.pdf')
+    plt.close()
