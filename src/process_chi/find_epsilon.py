@@ -106,14 +106,10 @@ def H2preampfun(Hz):
 
 def remove_noise_sp(tms, threshold):
     # TODO: Empirical, check against raw spectrum
-    # noisesp = 1.0e-11 * [1+(f/130)**3]**2
-    noisesp = noise_sp(tms)
+    noisesp = noise_sp(tms.f_cps)
     tms['corrTsp1_cps'] = tms.corrTsp1_cps.where(tms.corrTsp1_cps/(threshold * noisesp) > 1, 0)
     tms['corrTsp2_cps'] = tms.corrTsp2_cps.where(tms.corrTsp2_cps/(threshold * noisesp) > 1, 0)
     return tms
-
-def noise_sp(tms):
-    return 1e-11 * (1 + (tms.f_cps / 20)**3)**2
 
 def compute_batchelor_sp(tms):
     '''
@@ -147,7 +143,6 @@ def compute_batchelor_sp(tms):
                                               (kb * D)) * g / (2 * np.pi)
     return tms
 
-
 def chiprofile(tms, ctd):
     ''' Procedure to calculate chi from EM-APEX float
 
@@ -155,6 +150,9 @@ def chiprofile(tms, ctd):
     '''
     from scipy.interpolate import interp1d
 
+    tms = convert_tmsdata(chi_dir)
+    tms = tms.isel(time=100)
+    tms
     # % 1) convert realtime-transmitted scaled spectrum (sla)
     # to digitized voltage Spectrum
     tms['slad1'] = (tms.sla1 - tms.logavgoff) / tms.logavgsf
@@ -223,7 +221,55 @@ def chiprofile(tms, ctd):
     tms['eps2'] = tms.kt2 * tms.N2 / gamma
 
     tms = compute_batchelor_sp(tms)
-    return tms
+
+
+    def batchelor(k_rpm,chi,kb):
+        from scipy.special import erfc
+        D = 1.4e-7
+        nu = 1.2e-6
+        q = 3.7
+        # kbref = (tms.eps1 / nu / D**2)**(0.25)
+
+        a = np.sqrt(2 * q) * k_rpm / kb
+        uppera = []
+        for ai in a:
+            uppera.append(erfc(ai / np.sqrt(2)) * np.sqrt(0.5 * np.pi))
+
+        g = 2 * np.pi * a * (np.exp(-0.5 * a**2) - a * np.array(uppera))
+        return np.sqrt(0.5 * q) * (chi / (kb * D)) * g / (2 * np.pi)
+
+    def noise_sp(f_cps):
+        # noisesp = 1.0e-11 * [1+(f/130)**3]**2
+        return 1e-11 * (1 + (f_cps / 20)**3)**2
+
+    # 8) Goto method
+    from scipy.optimize import minimize
+    from scipy.stats import chi2
+
+
+# %%
+    def cost_function(kb):
+        '''
+        Cost function for MLE to fit spectra
+
+        see: Ruddick et al, 1996 and Goto et al., 2016
+        '''
+        df = 2
+        noise = noise_sp(tms.f_cps)*tms.w/(2*np.pi)
+        a = df/( batchelor(tms.k_rpm,tms.chi1,kb) + noise )
+        b = chi2.pdf(df*tms.corrdTdzsp1_rpm*a,df)
+        c = np.log(a*b)
+        return -np.sum(c)
+
+    noise.plot()
+    tms.corrdTdzsp1_rpm.plot(label=r'S$_{dTdz}$')
+    batchelor(tms.k_rpm,tms.chi1,kb).plot(label='Batchelor')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.ylim(1e-9,)
+    plt.legend()
+
+minimize(cost_function,x0=100)
 
 
 # %% MAIN

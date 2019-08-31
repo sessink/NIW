@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from cmocean import cm
 
+import gsw
+
 from tools import alphabet
 
 sns.set(style='ticks', context='paper')
@@ -18,9 +20,6 @@ mpl.rc('legend', frameon=False)
 
 
 # %% FUNCTIONs
-
-
-
 def plot_prof_ts(data, outfile):
     '''plot profile timeseries'''
     import matplotlib.colors as colors
@@ -137,17 +136,8 @@ def plot_ts_per_depth(data, outfile):
     # plt.subplots_adjust(hspace=0.1)
     plt.savefig(str(outfile))
 
-
-def plot_data(infile, outfile):
-    from datetime import datetime
+def backrotate_phase(data):
     import gsw
-
-    data = xr.open_dataset(str(infile))
-    id = str(infile).split('_')[1].split('.')[0]
-
-    # TODO: need to calculate those earlier somewhere else.
-    data['rho0'] = data.rho0 - 1000
-    data['hke_resid'] = 0.5 * np.sqrt(data.u_resid**2 + data.v_resid**2)
     data['ang'] = np.arctan2(data.v_resid, data.u_resid)
 
     ref_time = pd.to_datetime('1/1/2016')
@@ -170,14 +160,24 @@ def plot_data(infile, outfile):
 
     data['ang'] = np.degrees(data['ang'])
     data['ang_br'] = np.degrees(data['ang_br'])
+    return data
 
-    # # %%
-    #     f,ax=plt.subplots(2,1,figsize=(10,5),sharex=True)
-    #     data.ang.plot(ax=ax[0],ylim=(-500,0))
-    #     data.ang_br.plot(ax=ax[1],ylim=(-500,0))
-    # %%
+def plot_data(infile, outfile):
+    from datetime import datetime
+    import gsw
+
+    data = xr.open_dataset(str(infile))
+    id = str(infile).split('_')[1].split('.')[0]
+
+    # TODO: need to calculate those earlier somewhere else.
+    data['rho0'] = data.rho0 - 1000
+    data['hke_resid'] = 0.5 * np.sqrt(data.u_resid**2 + data.v_resid**2)
+
+    data = backrotate_phase(data)
+
     plot_prof_ts(data, str(outfile[0]))
     plot_ts_per_depth(data, str(outfile[1]))
+
 
 
 # # %% MAIN

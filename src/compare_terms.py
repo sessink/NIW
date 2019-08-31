@@ -18,9 +18,8 @@ mpl.rc('figure', dpi=100, figsize=[8, 5])
 mpl.rc('savefig', dpi=500, bbox='tight')
 mpl.rc('legend', frameon=False)
 
+
 # %% compute some stuff
-
-
 def load_data(infiles):
     # data = xr.open_dataset('data/ml/ml_7700b_3h_2Tf.nc')
 

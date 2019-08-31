@@ -128,7 +128,7 @@ rule ml_profile_ts:
         'figures/phase/depth_ts_{float}_{resample_period}_{filter_period}Tf.pdf',
 
     script:
-        'src/ml_profile_ts.py'
+        'src/phase.py'
 
 rule compute_ml_avg:
 	input:
