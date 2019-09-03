@@ -5,6 +5,7 @@ import glob
 import numpy as np
 import pandas as pd
 import xarray as xr
+from scipy.optimize import minimize
 
 # Plotting
 import matplotlib as mpl
@@ -20,6 +21,7 @@ sns.set(style='ticks', context='paper', palette='colorblind')
 mpl.rc('figure', dpi=100, figsize=[11, 5])
 mpl.rc('savefig', dpi=500, bbox='tight')
 mpl.rc('legend', frameon=False)
+
 
 # %%
 def convert_tmsdata(chi_dir):
@@ -69,6 +71,7 @@ def convert_ctddata(ctd_dir):
 
     return temp.swap_dims({'z': 'time'})
 
+
 def H2ADCfun(Hz):
     ''' H2 ADC transfer function
     '''
@@ -107,9 +110,12 @@ def H2preampfun(Hz):
 def remove_noise_sp(tms, threshold):
     # TODO: Empirical, check against raw spectrum
     noisesp = noise_sp(tms.f_cps)
-    tms['corrTsp1_cps'] = tms.corrTsp1_cps.where(tms.corrTsp1_cps/(threshold * noisesp) > 1, 0)
-    tms['corrTsp2_cps'] = tms.corrTsp2_cps.where(tms.corrTsp2_cps/(threshold * noisesp) > 1, 0)
+    tms['corrTsp1_cps'] = tms.corrTsp1_cps.where(
+        tms.corrTsp1_cps / (threshold * noisesp) > 1, 0)
+    tms['corrTsp2_cps'] = tms.corrTsp2_cps.where(
+        tms.corrTsp2_cps / (threshold * noisesp) > 1, 0)
     return tms
+
 
 def compute_batchelor_sp(tms):
     '''
@@ -143,6 +149,27 @@ def compute_batchelor_sp(tms):
                                               (kb * D)) * g / (2 * np.pi)
     return tms
 
+
+def batchelor(k_rpm, chi, kb_rpm):
+    from scipy.special import erfc
+    D = 1.4e-7
+    nu = 1.2e-6
+    q = 3.7
+    # kbref = (tms.eps1 / nu / D**2)**(0.25)
+
+    a = np.sqrt(2 * q) * k_rpm / kb_rpm
+    uppera = []
+    for ai in a:
+        uppera.append(erfc(ai / np.sqrt(2)) * np.sqrt(0.5 * np.pi))
+    g = 2 * np.pi * a * (np.exp(-0.5 * a**2) - a * np.array(uppera))
+    return np.sqrt(0.5 * q) * (chi.values / (kb_rpm.values * D)) * g / (2 * np.pi)
+
+
+def noise_sp(f_cps):
+    # noisesp = 1.0e-11 * [1+(f/130)**3]**2
+    return 1e-11 * (1 + (f_cps / 20)**3)**2
+
+
 def chiprofile(tms, ctd):
     ''' Procedure to calculate chi from EM-APEX float
 
@@ -150,9 +177,9 @@ def chiprofile(tms, ctd):
     '''
     from scipy.interpolate import interp1d
 
-    tms = convert_tmsdata(chi_dir)
-    tms = tms.isel(time=100)
-    tms
+    # tms = convert_tmsdata(chi_dir)
+    # tms = tms.isel(time=100)
+    # tms
     # % 1) convert realtime-transmitted scaled spectrum (sla)
     # to digitized voltage Spectrum
     tms['slad1'] = (tms.sla1 - tms.logavgoff) / tms.logavgsf
@@ -162,7 +189,7 @@ def chiprofile(tms, ctd):
     beta = 25
     Vref = 4  # volt
     Inet = 0.8
-    scale2 = (beta * Vref / (2**23*Inet))**2
+    scale2 = (beta * Vref / (2**23 * Inet))**2
     tms['rawTsp1'] = 10**(tms.slad1 / 10) * scale2
     tms['rawTsp2'] = 10**(tms.slad2 / 10) * scale2
 
@@ -208,8 +235,8 @@ def chiprofile(tms, ctd):
     condition = (tms.k_rpm <= kzmax) & (tms.k_rpm >= kzmin)
 
     if condition.sum() >= 3:
-        tms['chi1'] = 6*D*np.max( tms.corrdTdzsp1_rpm.integrate('k_rpm') )
-        tms['chi2'] = 6*D*np.max( tms.corrdTdzsp2_rpm.integrate('k_rpm') )
+        tms['chi1'] = 6 * D * np.max(tms.corrdTdzsp1_rpm.integrate('k_rpm'))
+        tms['chi2'] = 6 * D * np.max(tms.corrdTdzsp2_rpm.integrate('k_rpm'))
     else:
         tms['chi1'] = np.nan
         tms['chi2'] = np.nan
@@ -222,54 +249,41 @@ def chiprofile(tms, ctd):
 
     tms = compute_batchelor_sp(tms)
 
-
-    def batchelor(k_rpm,chi,kb):
-        from scipy.special import erfc
-        D = 1.4e-7
-        nu = 1.2e-6
-        q = 3.7
-        # kbref = (tms.eps1 / nu / D**2)**(0.25)
-
-        a = np.sqrt(2 * q) * k_rpm / kb
-        uppera = []
-        for ai in a:
-            uppera.append(erfc(ai / np.sqrt(2)) * np.sqrt(0.5 * np.pi))
-
-        g = 2 * np.pi * a * (np.exp(-0.5 * a**2) - a * np.array(uppera))
-        return np.sqrt(0.5 * q) * (chi / (kb * D)) * g / (2 * np.pi)
-
-    def noise_sp(f_cps):
-        # noisesp = 1.0e-11 * [1+(f/130)**3]**2
-        return 1e-11 * (1 + (f_cps / 20)**3)**2
-
     # 8) Goto method
-    from scipy.optimize import minimize
-    from scipy.stats import chi2
 
 
-# %%
-    def cost_function(kb):
+    def cost_function(kb, f_cps, w, k_rpm, chi, corrdTdz):
         '''
         Cost function for MLE to fit spectra
 
         see: Ruddick et al, 1996 and Goto et al., 2016
         '''
+        from scipy.stats import chi2
         df = 2
-        noise = noise_sp(tms.f_cps)*tms.w/(2*np.pi)
-        a = df/( batchelor(tms.k_rpm,tms.chi1,kb) + noise )
-        b = chi2.pdf(df*tms.corrdTdzsp1_rpm*a,df)
-        c = np.log(a*b)
-        return -np.sum(c)
+        noise = noise_sp(f_cps) * w / (2 * np.pi)
+        a = df / (batchelor(k_rpm, chi, kb) +
+                  noise)
+        b = chi2.pdf(corrdTdz * a, df)
+        c = np.log(a * b)
 
-    noise.plot()
-    tms.corrdTdzsp1_rpm.plot(label=r'S$_{dTdz}$')
-    batchelor(tms.k_rpm,tms.chi1,kb).plot(label='Batchelor')
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.ylim(1e-9,)
-    plt.legend()
+        condition = (k_rpm <= kzmax) & (k_rpm >= kzmin)
+        return -np.sum(c.where(condition))
 
-minimize(cost_function,x0=100)
+    D = 1.4e-7
+    nu = 1.2e-6
+    tms['kb1_gt']  = minimize(cost_function,
+                             x0=340,
+                             args=(tms.f_cps, tms.w, tms.k_rpm, tms.chi1,
+                                   tms.corrdTdzsp1_rpm)).x[0]
+    tms['eps1_gt'] = tms['kb1_gt']**4 * nu * D**2
+
+    tms['kb2_gt'] = minimize(cost_function,
+                             x0=340,
+                             args=(tms.f_cps, tms.w, tms.k_rpm, tms.chi2,
+                                   tms.corrdTdzsp2_rpm)).x[0]
+    tms['eps2_gt'] = tms['kb2_gt']**4 * nu * D**2 #* (2 * np.pi)**4
+
+    return tms
 
 
 # %% MAIN
@@ -282,23 +296,23 @@ turb = []
 for jblock in range(tms.nobs.values):
     tms_block = tms.isel(time=jblock)
     tms_block = chiprofile(tms_block, ctd)
-    tms_block = tms_block.swap_dims({'k_rpm':'f_cps'})
+    tms_block = tms_block.swap_dims({'k_rpm': 'f_cps'})
     turb.append(tms_block)
 
-turb = xr.concat(turb,dim='time')
+turb = xr.concat(turb, dim='time')
 
 # %% Plotting
-blocks = np.arange(0,turb.time.size,10)
+blocks = np.arange(0, turb.time.size, 10)
 
 for i in blocks:
-    f = plt.figure(figsize=(8,20))
+    f = plt.figure(figsize=(8, 20))
 
-    ax0 = f.add_subplot(4,1,1)
+    ax0 = f.add_subplot(4, 1, 1)
     temp = turb.isel(time=i)
-    ax0.plot(temp.f_cps,temp.H2adc,label='H2adc')
-    ax0.plot(temp.f_cps,temp.H2fp07,label='H2fp07')
-    ax0.plot(temp.f_cps,temp.H2preamp,label='H2preamp')
-    ax0.plot(temp.f_cps,temp.H2total_cps,label='H2total')
+    ax0.plot(temp.f_cps, temp.H2adc, label='H2adc')
+    ax0.plot(temp.f_cps, temp.H2fp07, label='H2fp07')
+    ax0.plot(temp.f_cps, temp.H2preamp, label='H2preamp')
+    ax0.plot(temp.f_cps, temp.H2total_cps, label='H2total')
     ax0.set_xscale('log')
     ax0.set_yscale('log')
     ax0.set_xlabel('Frequency [Hz]')
@@ -307,10 +321,10 @@ for i in blocks:
     ax0.axvline(4e2)
     ax0.legend()
 
-    ax1 = f.add_subplot(4,1,2,sharex=ax0)
-    ax1.plot(temp.f_cps,temp.rawTsp1,label='raw')
-    ax1.plot(temp.f_cps,temp.corrTsp1_cps,label='corrected')
-    ax1.plot(temp.f_cps,noise_sp(temp),ls='--',label='noise')
+    ax1 = f.add_subplot(4, 1, 2, sharex=ax0)
+    ax1.plot(temp.f_cps, temp.rawTsp1, label='raw')
+    ax1.plot(temp.f_cps, temp.corrTsp1_cps, label='corrected')
+    ax1.plot(temp.f_cps, noise_sp(temp), ls='--', label='noise')
     ax1.set_xlabel('Frequency [Hz]')
     ax1.set_ylabel(r'Raw and Corrected $\Phi_T$ [C$^2$ Hz$^{-1}$]')
     ax1.set_xscale('log')
@@ -319,32 +333,105 @@ for i in blocks:
     ax1.axvline(4e2)
     ax1.legend()
 
-    ax3 = f.add_subplot(4,1,3,sharex=ax2)
-    ax3.plot(temp.k_rpm,temp.corrdTdzsp1_rpm,label=r'$\Phi_{\partial_z T}^1$',color='C0')
+    ax3 = f.add_subplot(4, 1, 3, sharex=ax2)
+    ax3.plot(temp.k_rpm,
+             temp.corrdTdzsp1_rpm,
+             label=r'$\Phi_{\partial_z T}^1$',
+             color='C0')
     # ax3.plot(temp.k_rpm,temp.corrdTdzsp2_rpm,marker='+',label=r'$\Phi_{\partial_z T}^2$')
-    ax3.plot(temp.k_rpm,temp.batchelorsp2,ls='--',label=r'Batchelor',color='C1')
-    ax3.plot(temp.k_rpm,temp.corrTsp1_rpm,label=r'Corrected $\Phi_T$(k_z)',color='C2')
+    ax3.plot(temp.k_rpm,
+             temp.batchelorsp2,
+             ls='--',
+             label=r'Batchelor',
+             color='C1')
+    ax3.plot(temp.k_rpm,
+             temp.corrTsp1_rpm,
+             label=r'Corrected $\Phi_T$(k_z)',
+             color='C2')
     ax3.set_xlabel('k$_z$ [m$^{-1}$]')
     ax3.set_ylabel(r'Corrected $\Phi_{\partial_z T}$ [C$^2$ m$^{-1}$]')
     ax3.set_xscale('log')
     ax3.set_yscale('log')
     ax3.axvline(2e1)
     ax3.axvline(4e2)
-    ax3.set_ylim(1e-9,1e-2)
+    ax3.set_ylim(1e-9, 1e-2)
     ax3.legend()
 
     ax4 = ax3.twinx()
-    ax4.plot(temp.k_rpm,temp.k_rpm*temp.corrdTdzsp1_rpm,color='C3')
+    ax4.plot(temp.k_rpm, temp.k_rpm * temp.corrdTdzsp1_rpm, color='C3')
     # ax4.plot(temp.k_rpm,temp.k_rpm*temp.corrdTdzsp2_rpm,marker='+')
-    ax4.plot(temp.k_rpm,temp.k_rpm*temp.batchelorsp2,ls='--',color='C4')
-    ax4.plot(temp.k_rpm,temp.k_rpm*temp.corrTsp1_rpm,label=r'Corrected $\Phi_T$(k_z)',color='C2')
+    ax4.plot(temp.k_rpm, temp.k_rpm * temp.batchelorsp2, ls='--', color='C4')
+    ax4.plot(temp.k_rpm,
+             temp.k_rpm * temp.corrTsp1_rpm,
+             label=r'Corrected $\Phi_T$(k_z)',
+             color='C2')
     ax4.set_xlabel('k$_z$ [m$^{-1}$]')
     ax4.set_ylabel(r'Corrected $k_z\Phi_{\partial_z T}$ [C$^2$ m$^{-1}$]')
     ax4.set_xscale('log')
     ax4.set_yscale('log')
     ax4.axvline(2e1)
     ax4.axvline(4e2)
-    ax4.set_ylim(1e-9,1e-2)
+    ax4.set_ylim(1e-9, 1e-2)
 
     plt.savefig(f'figures/chi_calculation/0chi_t{i:03d}.pdf')
     plt.close()
+
+# %%
+blocks = np.arange(0, turb.time.size, 10)
+plt.figure(figsize=(6,5))
+for i in blocks:
+    temp = turb.isel(time=i)
+    plt.plot(temp.k_rpm,
+                 temp.corrdTdzsp1_rpm,
+                 label=r'$\Phi_{\partial_z T}^1$',
+                 color='C0')
+    plt.plot(temp.k_rpm,batchelor(temp.k_rpm,temp.chi1,temp.kb1_gt),'--',color='r',label='Batchelor Goto')
+    plt.plot(temp.k_rpm,temp.batchelorsp1,'--',color='g',label='Batchelor Old')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.ylim(1e-9, 1e-2)
+    plt.legend()
+    plt.savefig(f'figures/chi_calculation/compare_eps/compare_{i:03}.pdf')
+    plt.close()
+
+# %%
+blocks = np.arange(0, turb.time.size, 10)
+plt.figure(figsize=(6,5))
+for i in blocks:
+    temp = turb.isel(time=i)
+    # plt.plot(temp.k_rpm,
+    #              temp.corrdTdzsp1_rpm,
+    #              label=r'$\Phi_{\partial_z T}^1$',
+    #              color='C0')
+    plt.plot(temp.k_rpm,np.log10( batchelor(temp.k_rpm,temp.chi1,temp.kb1_gt)/temp.batchelorsp1 ),'--',color='r',label='log( Goto/Old )')
+    # plt.plot(temp.k_rpm,temp.batchelorsp1,'--',color='g',label='Batchelor Old')
+    plt.xscale('log')
+    # plt.yscale('log')
+    # plt.ylim(1e-9, 1e-2)
+    plt.legend()
+    plt.savefig(f'figures/chi_calculation/compare_eps/ratio_{i:03}.pdf')
+    plt.close()
+# %%
+from sklearn.linear_model import LinearRegression
+
+x = turb.eps1.fillna(1).values.reshape(-1, 1)
+Y = turb.eps1_gt.fillna(1).values
+reg = LinearRegression().fit(x,Y)
+reg.score(x,Y)
+
+plt.figure(figsize=(6,6))
+plt.plot(turb.eps1,turb.eps1_gt,'.')
+plt.ylim(1e-12,1e-7)
+plt.xlim(1e-12,1e-7)
+plt.xscale('log')
+plt.yscale('log')
+
+# %%
+blocks = np.arange(0, turb.time.size, 10)
+
+f,ax = plt.subplots(2,1,figsize=(5,10),sharex=True)
+turb.eps1.pipe(np.log10).plot.hist(ax=ax[0])
+turb.eps1_gt.pipe(np.log10).plot.hist(ax=ax[1])
+plt.xlim(-12,-5)
+plt.savefig(f'figures/chi_calculation/compare_eps/eps_hist.pdf')
+plt.close()
