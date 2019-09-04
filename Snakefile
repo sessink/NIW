@@ -41,13 +41,11 @@ rule all:
         expand('figures/budget/terms_ts_{float}_{resample_period}_{filter_period}Tf.pdf',
                float=FLOATS, filter_period=filter_period,
                resample_period=resample_period),
-        expand('figures/budget/scatter_{float}_{resample_period}_{filter_period}Tf.pdf',
-               float=FLOATS, filter_period=filter_period,
-               resample_period=resample_period),
         # expand('figures/nio_maps_{float}_{filter_period}Tf.pdf',float=FLOATS,filter_period=filter_period),
         # expand('figures/weather_maps/weather_{date}.pdf',date=dates),
         # 'figures/float_traj.pdf',
         'figures/budget/pdf_total_terms.pdf',
+        'figures/budget/scatter_total_terms.pdf',
         expand("viz/{graph}.{fmt}", graph=["rulegraph", "dag"], fmt=["pdf", "png"]),
 
 rule convert_mat_files:
@@ -144,8 +142,7 @@ rule compare_terms:
         'data/xarray/qc_ww_{float}.nc'
     output:
         'data/ml/ww_{float}_{resample_period}_{filter_period}Tf.nc',
-        'figures/budget/terms_ts_{float}_{resample_period}_{filter_period}Tf.pdf',
-        'figures/budget/scatter_{float}_{resample_period}_{filter_period}Tf.pdf'
+        'figures/budget/terms_ts_{float}_{resample_period}_{filter_period}Tf.pdf'
     script:
         'src/compare_terms.py'
 
@@ -157,7 +154,10 @@ rule summarize_terms:
     output:
         'figures/budget/pdf_total_terms.pdf',
         'figures/budget/pdf_a_terms.pdf',
-        'figures/budget/pdf_b_terms.pdf'
+        'figures/budget/pdf_b_terms.pdf',
+        'figures/budget/scatter_total_terms.pdf',
+        'figures/budget/scatter_a_terms.pdf',
+        'figures/budget/scatter_b_terms.pdf',
     script:
         'src/summarize_terms.py'
 

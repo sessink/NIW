@@ -1,11 +1,13 @@
 # Scientific Computing
 # Standard Library
 import glob
+import warnings
 
 import numpy as np
 import pandas as pd
 import xarray as xr
-from scipy.optimize import minimize
+# %%
+from scipy.optimize import curve_fit, minimize
 
 # Plotting
 import matplotlib as mpl
@@ -13,8 +15,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from cmocean import cm
 
-import tables
+from sklearn.linear_model import LinearRegression
 from src.tools import alphabet, load_matfile, str2date
+
+warnings.simplefilter("ignore")
 
 # set up figure params
 sns.set(style='ticks', context='paper', palette='colorblind')
@@ -162,7 +166,7 @@ def batchelor(k_rpm, chi, kb_rpm):
     for ai in a:
         uppera.append(erfc(ai / np.sqrt(2)) * np.sqrt(0.5 * np.pi))
     g = 2 * np.pi * a * (np.exp(-0.5 * a**2) - a * np.array(uppera))
-    return np.sqrt(0.5 * q) * (chi.values / (kb_rpm.values * D)) * g / (2 * np.pi)
+    return np.sqrt(0.5 * q) * (chi / (kb_rpm * D)) * g / (2 * np.pi)
 
 
 def noise_sp(f_cps):
@@ -235,8 +239,10 @@ def chiprofile(tms, ctd):
     condition = (tms.k_rpm <= kzmax) & (tms.k_rpm >= kzmin)
 
     if condition.sum() >= 3:
-        tms['chi1'] = 6 * D * np.max(tms.corrdTdzsp1_rpm.integrate('k_rpm'))
-        tms['chi2'] = 6 * D * np.max(tms.corrdTdzsp2_rpm.integrate('k_rpm'))
+        tms['chi1'] = 6 * D * tms.corrdTdzsp1_rpm.where(condition).dropna(
+            dim='k_rpm').integrate('k_rpm')
+        tms['chi2'] = 6 * D * tms.corrdTdzsp2_rpm.where(condition).dropna(
+            dim='k_rpm').integrate('k_rpm')
     else:
         tms['chi1'] = np.nan
         tms['chi2'] = np.nan
@@ -250,8 +256,6 @@ def chiprofile(tms, ctd):
     tms = compute_batchelor_sp(tms)
 
     # 8) Goto method
-
-
     def cost_function(kb, f_cps, w, k_rpm, chi, corrdTdz):
         '''
         Cost function for MLE to fit spectra
@@ -259,19 +263,20 @@ def chiprofile(tms, ctd):
         see: Ruddick et al, 1996 and Goto et al., 2016
         '''
         from scipy.stats import chi2
+        kzmin = 20
+        kzmax = 400
         df = 2
         noise = noise_sp(f_cps) * w / (2 * np.pi)
-        a = df / (batchelor(k_rpm, chi, kb) +
-                  noise)
+        a = df / (batchelor(k_rpm.values, chi.values, kb) + noise)
         b = chi2.pdf(corrdTdz * a, df)
         c = np.log(a * b)
 
         condition = (k_rpm <= kzmax) & (k_rpm >= kzmin)
-        return -np.sum(c.where(condition))
+        return -np.sum(c.where(condition)).values
 
     D = 1.4e-7
     nu = 1.2e-6
-    tms['kb1_gt']  = minimize(cost_function,
+    tms['kb1_gt'] = minimize(cost_function,
                              x0=340,
                              args=(tms.f_cps, tms.w, tms.k_rpm, tms.chi1,
                                    tms.corrdTdzsp1_rpm)).x[0]
@@ -281,25 +286,31 @@ def chiprofile(tms, ctd):
                              x0=340,
                              args=(tms.f_cps, tms.w, tms.k_rpm, tms.chi2,
                                    tms.corrdTdzsp2_rpm)).x[0]
-    tms['eps2_gt'] = tms['kb2_gt']**4 * nu * D**2 #* (2 * np.pi)**4
+    tms['eps2_gt'] = tms['kb2_gt']**4 * nu * D**2  #* (2 * np.pi)**4
 
     return tms
 
 
 # %% MAIN
-chi_dir = 'data/chi/ema-7786b-0200-tms.mat'
-tms = convert_tmsdata(chi_dir)
-ctd_dir = 'data/chi/ema-7786b-0200-ctd.mat'
-ctd = convert_ctddata(ctd_dir)
+liste = ['7786b-0200','7786b-0300']
+all_profiles=[]
+for l in liste:
+    chi_dir = 'data/chi/ema-'+l+'-tms.mat'
+    tms = convert_tmsdata(chi_dir)
+    ctd_dir = 'data/chi/ema-'+l+'-ctd.mat'
+    ctd = convert_ctddata(ctd_dir)
 
-turb = []
-for jblock in range(tms.nobs.values):
-    tms_block = tms.isel(time=jblock)
-    tms_block = chiprofile(tms_block, ctd)
-    tms_block = tms_block.swap_dims({'k_rpm': 'f_cps'})
-    turb.append(tms_block)
+    turb = []
+    for jblock in range(tms.nobs.values):
+        tms_block = tms.isel(time=jblock)
+        tms_block = chiprofile(tms_block, ctd)
+        tms_block = tms_block.swap_dims({'k_rpm': 'f_cps'})
+        turb.append(tms_block)
 
-turb = xr.concat(turb, dim='time')
+    turb = xr.concat(turb, dim='time')
+    all_profiles.append(turb)
+
+all_profiles =  xr.concat(all_profiles, dim='time')
 
 # %% Plotting
 blocks = np.arange(0, turb.time.size, 10)
@@ -378,15 +389,23 @@ for i in blocks:
 
 # %%
 blocks = np.arange(0, turb.time.size, 10)
-plt.figure(figsize=(6,5))
+plt.figure(figsize=(6, 5))
 for i in blocks:
     temp = turb.isel(time=i)
     plt.plot(temp.k_rpm,
-                 temp.corrdTdzsp1_rpm,
-                 label=r'$\Phi_{\partial_z T}^1$',
-                 color='C0')
-    plt.plot(temp.k_rpm,batchelor(temp.k_rpm,temp.chi1,temp.kb1_gt),'--',color='r',label='Batchelor Goto')
-    plt.plot(temp.k_rpm,temp.batchelorsp1,'--',color='g',label='Batchelor Old')
+             temp.corrdTdzsp1_rpm,
+             label=r'$\Phi_{\partial_z T}^1$',
+             color='C0')
+    plt.plot(temp.k_rpm,
+             batchelor(temp.k_rpm, temp.chi1, temp.kb1_gt),
+             '--',
+             color='r',
+             label='Batchelor Goto')
+    plt.plot(temp.k_rpm,
+             temp.batchelorsp1,
+             '--',
+             color='g',
+             label='Batchelor Old')
     plt.xscale('log')
     plt.yscale('log')
     plt.ylim(1e-9, 1e-2)
@@ -396,14 +415,20 @@ for i in blocks:
 
 # %%
 blocks = np.arange(0, turb.time.size, 10)
-plt.figure(figsize=(6,5))
+plt.figure(figsize=(6, 5))
 for i in blocks:
     temp = turb.isel(time=i)
     # plt.plot(temp.k_rpm,
     #              temp.corrdTdzsp1_rpm,
     #              label=r'$\Phi_{\partial_z T}^1$',
     #              color='C0')
-    plt.plot(temp.k_rpm,np.log10( batchelor(temp.k_rpm,temp.chi1,temp.kb1_gt)/temp.batchelorsp1 ),'--',color='r',label='log( Goto/Old )')
+    plt.plot(temp.k_rpm,
+             np.log10(
+                 batchelor(temp.k_rpm, temp.chi1, temp.kb1_gt) /
+                 temp.batchelorsp1),
+             '--',
+             color='r',
+             label='log( Goto/Old )')
     # plt.plot(temp.k_rpm,temp.batchelorsp1,'--',color='g',label='Batchelor Old')
     plt.xscale('log')
     # plt.yscale('log')
@@ -411,27 +436,50 @@ for i in blocks:
     plt.legend()
     plt.savefig(f'figures/chi_calculation/compare_eps/ratio_{i:03}.pdf')
     plt.close()
+
 # %%
-from sklearn.linear_model import LinearRegression
 
-x = turb.eps1.fillna(1).values.reshape(-1, 1)
-Y = turb.eps1_gt.fillna(1).values
-reg = LinearRegression().fit(x,Y)
-reg.score(x,Y)
+def func(x, m, n):
+    return m * x + n
 
-plt.figure(figsize=(6,6))
-plt.plot(turb.eps1,turb.eps1_gt,'.')
-plt.ylim(1e-12,1e-7)
-plt.xlim(1e-12,1e-7)
+x = all_profiles.eps1.dropna('time')
+y = all_profiles.eps1_gt.dropna('time')
+
+x = np.log( x.dropna('time'))
+y = np.log( y.dropna('time'))
+okay = ~np.isnan(x) & ~np.isnan(y)
+coeff, pcov = curve_fit(func, x.where(okay), y.where(okay))
+perr = np.sqrt(np.diag(pcov))
+
+residuals = y - func(x, *coeff)
+ss_res = np.sum(residuals**2)
+ss_tot = np.sum((y - np.mean(y))**2)
+r_squared = 1 - (ss_res / ss_tot)
+
+plt.figure(figsize=(6, 6))
+plt.plot(np.exp(x.where(okay)), np.exp(y.where(okay)), '.')
+plt.plot(np.exp(x), np.exp(func(x, coeff[0], coeff[1])))
+# plt.ylim(1e-12, 1e-7)
+# plt.xlim(1e-12, 1e-7)
 plt.xscale('log')
 plt.yscale('log')
+plt.xlabel("Ren-Chieh's epsilon")
+plt.ylabel("Goto's epsilon")
+plt.title('7786b-0200')
+plt.annotate(fr'R$^2$ {r_squared.values:2.2f}', (0.2, 0.85),
+             xycoords='figure fraction')
+plt.annotate(f'm = {coeff[0]:2.2f},' + '\n' + f'n = {coeff[1]:2.2f}',
+             (0.7, 0.85),
+             xycoords='figure fraction')
+plt.savefig('figures/chi_calculation/compare_eps/regress_eps.pdf')
+plt.show()
 
 # %%
 blocks = np.arange(0, turb.time.size, 10)
 
-f,ax = plt.subplots(2,1,figsize=(5,10),sharex=True)
+f, ax = plt.subplots(2, 1, figsize=(5, 10), sharex=True)
 turb.eps1.pipe(np.log10).plot.hist(ax=ax[0])
 turb.eps1_gt.pipe(np.log10).plot.hist(ax=ax[1])
-plt.xlim(-12,-5)
+plt.xlim(-12, -5)
 plt.savefig(f'figures/chi_calculation/compare_eps/eps_hist.pdf')
 plt.close()

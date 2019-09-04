@@ -182,4 +182,4 @@ def plot_timeseries(data, data2, outfile):
 data, data2 = load_data(snakemake.input)
 data.to_netcdf(snakemake.output[0])
 plot_timeseries(data, data2, snakemake.output[1])
-scatterplots(data, snakemake.output[2])
+# scatterplots(data, snakemake.output[2])
