@@ -77,6 +77,7 @@ def plot_histograms(outfile, files, flatten=False, **kwargs):
     ax[2].set_ylabel('PDF')
     print_stats(ax[2], files.eps)
 
+    alphabet(ax)
     plt.tight_layout()
     plt.savefig(str(outfile))
 

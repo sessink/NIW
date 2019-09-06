@@ -26,18 +26,27 @@ plt.style.use('sebstyle')
 # %%
 
 def butter_lowpass_filter(data, cutoff, fs, order):
+    '''
+    adapted from Scipy cookbook
+    '''
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
     b, a = butter(order, normal_cutoff, btype='lowpass', analog=False)
-    # y = filtfilt(b, a, data)
     y = filtfilt(b, a, data)
     return y
 
+def butter_bandpass_filter(data,lowcut,highcut,fs,order):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    y = filtfilt(b, a, data)
+    return y
 
 def make_test_plots(data, outfile):
     f, axs = plt.subplots(6, 1, sharex=True)
 
-    vars = ['u','u_lowpass','u_resid','v','v_lowpass','v_resid']
+    vars = ['u_lowpass','u_band','u_resid','v_lowpass','v_band','v_resid']
     for ax,var in zip(axs,vars):
         data[var].dropna(dim='time', how='all').plot(ylim=(-500, 0),
                                                ax=ax,
@@ -49,15 +58,15 @@ def make_test_plots(data, outfile):
     plt.savefig(outfile)
 
 
-def filter_variables(data, resample_period, filter_period,
+def lowpass_filter_variables(data, resample_period, filter_period,
                      order):
     '''
-    apply filter to multiple variables
+    apply lowpass filter to multiple variables
     '''
 
     sampling_period = np.int(resample_period.split('h')[0])
     fs = 1 / (3600 * sampling_period)  # sample rate, Hz
-    f = gsw.f(39)  # inertial frequency
+    f = gsw.f(40)  # inertial frequency
     Tf = 2 * np.pi / f  # inertial period
     # desired cutoff frequency of the filter, Hz
     cutoff = 1 / (Tf * filter_period)
@@ -78,21 +87,50 @@ def filter_variables(data, resample_period, filter_period,
     ds = xr.concat(bucket, data.z)
     return ds
 
+def bandpass_filter_variables(data, resample_period, order):
+    '''
+    apply bandpass filter to multiple variables
+    '''
+    sampling_period = np.int(resample_period.split('h')[0])
+    fs = 1 / (3600 * sampling_period)  # sample rate, Hz
+    f = gsw.f(40)  # inertial frequency
+    highcut = 1.2*f
+    lowcut = 0.8*f
+
+    # loop over depths
+    bucket = []
+    for z in range(len(data.z)):
+        dat = data.isel(z=z).dropna(dim='time')
+        # temp = dat[var].fillna(0)
+        if dat.count() > 27:
+            filtered = butter_bandpass_filter(dat, lowcut, highcut, fs, order)
+            bucket.append(
+                xr.DataArray(filtered, coords=[dat.time], dims=['time']))
+        else:
+            bucket.append(
+                xr.DataArray(np.ones(dat.time.size) * np.nan,
+                             coords=[dat.time],
+                             dims=['time']))
+    ds = xr.concat(bucket, data.z)
+    return ds
+
 def filter_wrapper(input, figureoutput, dataoutput, resample_period,
                    filter_period):
     '''
     Apply to all floata
     '''
-    order = 3
+    order = 4
     data = xr.open_dataset(str(input))
 
-    # filter u and v
-
-    data['u_lowpass'] = filter_variables(data['u'], resample_period, filter_period, order=order)
-    data['v_lowpass'] = filter_variables(data['v'], resample_period, filter_period, order=order)
-
+    # lowpass filter u and v
+    data['u_lowpass'] = lowpass_filter_variables(data['u'], resample_period, filter_period, order=order)
+    data['v_lowpass'] = lowpass_filter_variables(data['v'], resample_period, filter_period, order=order)
     data['u_resid'] = data.u.where(data.u.notnull()) - data.u_lowpass.where(data.u_lowpass.notnull())
     data['v_resid'] = data.v.where(data.v.notnull()) - data.v_lowpass.where(data.v_lowpass.notnull())
+
+    # bandpass filter u and v
+    data['u_band'] = bandpass_filter_variables(data['u'], resample_period, order=order)
+    data['v_band'] = bandpass_filter_variables(data['v'], resample_period, order=order)
 
     data = data.dropna(dim='time', how='all')
     data = compute_mld(data)

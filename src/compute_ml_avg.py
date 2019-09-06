@@ -33,19 +33,21 @@ def mlavg_wrapper(input, output):
     data['hke'] = 0.5 * (data.u**2 + data.v**2)
     data['hke_lowpass'] = 0.5 * (data.u_lowpass**2 + data.v_lowpass**2)
     data['hke_resid'] = 0.5 * (data.u_resid**2 + data.v_resid**2)
+    data['hke_band'] = 0.5 * (data.u_band**2 + data.v_band**2)
 
     mlavg = xr.Dataset()
-    vars = ['hke','hke_resid','hke_lowpass','eps']
+    vars = ['hke','hke_resid','hke_lowpass','hke_band','eps']
     for var in vars:
         mlavg[var] = integrate_columns(data[var],data.mld)
 
-    vars = ['u','u_resid','u_lowpass','v','v_resid','v_lowpass']
+    vars = ['u','u_resid','u_lowpass','u_band','v','v_resid','v_lowpass','v_band']
     for var in vars:
         mlavg[var] = data[var].mean(axis=0)
 
     mlavg['mld'] = data.mld
 
     mlavg['hke'] = -mlavg['hke']/mlavg.mld
+    mlavg['hke_band'] = -mlavg['hke_band']/mlavg.mld
     mlavg['hke_resid'] = -mlavg['hke_resid']/mlavg.mld
     mlavg['hke_lowpass'] = -mlavg['hke_lowpass']/mlavg.mld
     mlavg['eps'] = -mlavg['eps']/mlavg.mld
