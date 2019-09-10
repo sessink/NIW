@@ -18,6 +18,7 @@ from cmocean import cm
 from sklearn.linear_model import LinearRegression
 from src.tools import alphabet, load_matfile, str2date
 
+import warnings
 warnings.simplefilter("ignore")
 
 # set up figure params
@@ -274,6 +275,13 @@ def chiprofile(tms, ctd):
         condition = (k_rpm <= kzmax) & (k_rpm >= kzmin)
         return -np.sum(c.where(condition)).values
 
+
+    def signal_to_noise(observed,noise):
+        return observed/noise
+
+    signal_to_noise(tms.corrdTdzsp1_rpm,noise_sp(tms.f_cps) * tms.w / (2 * np.pi))
+
+
     D = 1.4e-7
     nu = 1.2e-6
     tms['kb1_gt'] = minimize(cost_function,
@@ -288,6 +296,7 @@ def chiprofile(tms, ctd):
                                    tms.corrdTdzsp2_rpm)).x[0]
     tms['eps2_gt'] = tms['kb2_gt']**4 * nu * D**2  #* (2 * np.pi)**4
 
+
     return tms
 
 
@@ -295,6 +304,7 @@ def chiprofile(tms, ctd):
 liste = ['7786b-0200','7786b-0300']
 all_profiles=[]
 for l in liste:
+    l = '7786b-0200'
     chi_dir = 'data/chi/ema-'+l+'-tms.mat'
     tms = convert_tmsdata(chi_dir)
     ctd_dir = 'data/chi/ema-'+l+'-ctd.mat'
@@ -302,6 +312,8 @@ for l in liste:
 
     turb = []
     for jblock in range(tms.nobs.values):
+        jblock = 50
+        tms = tms.isel(time=jblock)
         tms_block = tms.isel(time=jblock)
         tms_block = chiprofile(tms_block, ctd)
         tms_block = tms_block.swap_dims({'k_rpm': 'f_cps'})

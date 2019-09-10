@@ -15,12 +15,15 @@ def integrate_columns(data,mld):
         Integrate each profile over mixed layer.
     '''
     # mld=data.mld
-    data = data.where(data.z >= mld)
+    data = data.where( (data.z >= mld) & (data.z < -10) )
     data['z'] = data.z * (-1)
     array = []
     for t in range(data.time.size):
         # TODO: could do better here with simpson's rule
-        array.append(data.isel(time=t).dropna('z').integrate('z'))
+        if data.isel(time=t).dropna('z').size > 3:
+            array.append(data.isel(time=t).dropna('z').integrate('z'))
+        else:
+            array.append(data.isel(time=t).dropna('z').integrate('z')*np.nan)
 
     return xr.concat(array, dim='time')
 
@@ -46,11 +49,11 @@ def mlavg_wrapper(input, output):
 
     mlavg['mld'] = data.mld
 
-    mlavg['hke'] = -mlavg['hke']/mlavg.mld
-    mlavg['hke_band'] = -mlavg['hke_band']/mlavg.mld
-    mlavg['hke_resid'] = -mlavg['hke_resid']/mlavg.mld
-    mlavg['hke_lowpass'] = -mlavg['hke_lowpass']/mlavg.mld
-    mlavg['eps'] = -mlavg['eps']/mlavg.mld
+    mlavg['hke'] = -mlavg['hke']/(mlavg.mld+10)
+    mlavg['hke_band'] = -mlavg['hke_band']/(mlavg.mld+10)
+    mlavg['hke_resid'] = -mlavg['hke_resid']/(mlavg.mld+10)
+    mlavg['hke_lowpass'] = -mlavg['hke_lowpass']/(mlavg.mld+10)
+    mlavg['eps'] = -mlavg['eps']/(mlavg.mld+10)
 
     mlavg.to_netcdf(str(output))
 

@@ -186,8 +186,8 @@ rule combine_ml_avg:
                filter_period=filter_period)
     output:
         'data/ml/mlall_{resample_period}_{filter_period}Tf.nc'
-    benchmark:
-        repeat('benchmark/bench_{resample_period}_{filter_period}Tf.txt',3)
+    # benchmark:
+    #     repeat('benchmark/bench_{resample_period}_{filter_period}Tf.txt',3)
     script:
         'src/combine_ml_avg.py'
 
