@@ -21,7 +21,6 @@ mpl.rc('figure', dpi=120, figsize=[8.5, 11])
 mpl.rc('savefig', dpi=500, bbox='tight')
 mpl.rc('legend', frameon=False)
 
-
 # %%
 def backrotate_phase(data):
     import gsw

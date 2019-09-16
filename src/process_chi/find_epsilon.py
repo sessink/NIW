@@ -170,6 +170,15 @@ def batchelor(k_rpm, chi, kb_rpm):
     return np.sqrt(0.5 * q) * (chi / (kb_rpm * D)) * g / (2 * np.pi)
 
 
+def kraichnan(k_rpm, chi, kb_rpm):
+    from scipy.special import erfc
+    D = 1.4e-7
+    nu = 1.2e-6
+    q = 3.7
+
+    yk = np.sqrt(q_kr)* k_rpm / kb_rpm
+    return
+
 def noise_sp(f_cps):
     # noisesp = 1.0e-11 * [1+(f/130)**3]**2
     return 1e-11 * (1 + (f_cps / 20)**3)**2
@@ -279,7 +288,7 @@ def chiprofile(tms, ctd):
     def signal_to_noise(observed,noise):
         return observed/noise
 
-    signal_to_noise(tms.corrdTdzsp1_rpm,noise_sp(tms.f_cps) * tms.w / (2 * np.pi))
+    plt.plot( signal_to_noise(tms.corrdTdzsp1_rpm,noise_sp(tms.f_cps) * tms.w / (2 * np.pi)) )
 
 
     D = 1.4e-7
@@ -312,8 +321,7 @@ for l in liste:
 
     turb = []
     for jblock in range(tms.nobs.values):
-        jblock = 50
-        tms = tms.isel(time=jblock)
+        # tms = tms.isel(time=jblock)
         tms_block = tms.isel(time=jblock)
         tms_block = chiprofile(tms_block, ctd)
         tms_block = tms_block.swap_dims({'k_rpm': 'f_cps'})
