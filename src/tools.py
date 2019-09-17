@@ -66,3 +66,9 @@ def alphabet(ax):
         axx.annotate(alphabet[j], (0, 1.02),
                      xycoords='axes fraction',
                      weight='bold')
+
+def avg_funs(array1, array2):
+    '''take average taking into account nans'''
+    import xarray as xr
+    concat = xr.concat([array1, array2], dim='temp')
+    return concat.mean(dim='temp')

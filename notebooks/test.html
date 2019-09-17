@@ -1,0 +1,908 @@
+
+<script src="https://cdn.pydata.org/bokeh/release/bokeh-1.3.1.min.js" type="text/javascript"></script>
+<script src="https://cdn.pydata.org/bokeh/release/bokeh-widgets-1.3.1.min.js" type="text/javascript"></script>
+<script src="https://cdn.pydata.org/bokeh/release/bokeh-tables-1.3.1.min.js" type="text/javascript"></script>
+<script src="https://cdn.pydata.org/bokeh/release/bokeh-gl-1.3.1.min.js" type="text/javascript"></script>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js" type="text/javascript"></script>
+<script src="https://code.jquery.com/ui/1.10.4/jquery-ui.min.js" type="text/javascript"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.20/require.min.js" type="text/javascript"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js" type="text/javascript"></script>
+<script type="text/javascript">function HoloViewsWidget() {
+}
+
+HoloViewsWidget.prototype.init_slider = function(init_val){
+  if(this.load_json) {
+    this.from_json()
+  } else {
+    this.update_cache();
+  }
+}
+
+HoloViewsWidget.prototype.populate_cache = function(idx){
+  this.cache[idx].innerHTML = this.frames[idx];
+  if (this.embed) {
+    delete this.frames[idx];
+  }
+}
+
+HoloViewsWidget.prototype.process_error = function(msg){
+}
+
+HoloViewsWidget.prototype.from_json = function() {
+  var data_url = this.json_path + this.id + '.json';
+  $.getJSON(data_url, $.proxy(function(json_data) {
+    this.frames = json_data;
+    this.update_cache();
+    this.update(0);
+  }, this));
+}
+
+HoloViewsWidget.prototype.dynamic_update = function(current){
+  if (current === undefined) {
+    return
+  }
+  this.current = current;
+  if (this.comm) {
+    var msg = {comm_id: this.id+'_client', content: current}
+    this.comm.send(msg);
+  }
+}
+
+HoloViewsWidget.prototype.update_cache = function(force){
+  var frame_len = Object.keys(this.frames).length;
+  for (var i=0; i<frame_len; i++) {
+    if(!this.load_json || this.dynamic)  {
+      var frame = Object.keys(this.frames)[i];
+    } else {
+      var frame = i;
+    }
+    if(!(frame in this.cache) || force) {
+      if ((frame in this.cache) && force) { this.cache[frame].remove() }
+      var div = document.createElement("div");
+      var parent = document.getElementById("_anim_img"+this.id);
+      div.style.display = "none";
+      parent.appendChild(div)
+      this.cache[frame] = div;
+      var cache_id = "_anim_img"+this.id+"_"+frame;
+      this.populate_cache(frame);
+    }
+  }
+}
+
+HoloViewsWidget.prototype.update = function(current){
+  if(current in this.cache) {
+    for (var index in this.cache) {
+      this.cache[index].style.display = "none";
+    }
+    this.cache[current].style.display = "";
+    this.wait = false;
+  }
+}
+
+HoloViewsWidget.prototype.init_comms = function() {
+  var that = this
+  HoloViews.comm_manager.register_target(this.plot_id, this.id, function (msg) { that.msg_handler(msg) })
+  if (!this.cached || this.dynamic) {
+    function ack_callback(msg) {
+      var msg = msg.metadata;
+      var comm_id = msg.comm_id;
+      var comm_status = HoloViews.comm_status[comm_id];
+      if (that.queue.length > 0) {
+        that.time = Date.now();
+        that.dynamic_update(that.queue[that.queue.length-1]);
+        that.queue = [];
+      } else {
+        that.wait = false;
+      }
+      if ((msg.msg_type == "Ready") && msg.content) {
+        console.log("Python callback returned following output:", msg.content);
+      } else if (msg.msg_type == "Error") {
+        console.log("Python failed with the following traceback:", msg.traceback)
+      }
+    }
+    var comm = HoloViews.comm_manager.get_client_comm(this.plot_id, this.id+'_client', ack_callback);
+    return comm
+  }
+}
+
+HoloViewsWidget.prototype.msg_handler = function(msg) {
+  var metadata = msg.metadata;
+  if ((metadata.msg_type == "Ready")) {
+    if (metadata.content) {
+      console.log("Python callback returned following output:", metadata.content);
+    }
+	return;
+  } else if (metadata.msg_type == "Error") {
+    console.log("Python failed with the following traceback:", metadata.traceback)
+    return
+  }
+  this.process_msg(msg)
+}
+
+HoloViewsWidget.prototype.process_msg = function(msg) {
+}
+
+function SelectionWidget(frames, id, slider_ids, keyMap, dim_vals, notFound, load_json, mode, cached, json_path, dynamic, plot_id){
+  this.frames = frames;
+  this.id = id;
+  this.plot_id = plot_id;
+  this.slider_ids = slider_ids;
+  this.keyMap = keyMap
+  this.current_frame = 0;
+  this.current_vals = dim_vals;
+  this.load_json = load_json;
+  this.mode = mode;
+  this.notFound = notFound;
+  this.cached = cached;
+  this.dynamic = dynamic;
+  this.cache = {};
+  this.json_path = json_path;
+  this.init_slider(this.current_vals[0]);
+  this.queue = [];
+  this.wait = false;
+  if (!this.cached || this.dynamic) {
+    this.comm = this.init_comms();
+  }
+}
+
+SelectionWidget.prototype = new HoloViewsWidget;
+
+
+SelectionWidget.prototype.get_key = function(current_vals) {
+  var key = "(";
+  for (var i=0; i<this.slider_ids.length; i++)
+  {
+    var val = this.current_vals[i];
+    if (!(typeof val === 'string')) {
+      if (val % 1 === 0) { val = val.toFixed(1); }
+      else { val = val.toFixed(10); val = val.slice(0, val.length-1);}
+    }
+    key += "'" + val + "'";
+    if(i != this.slider_ids.length-1) { key += ', ';}
+    else if(this.slider_ids.length == 1) { key += ',';}
+  }
+  key += ")";
+  return this.keyMap[key];
+}
+
+SelectionWidget.prototype.set_frame = function(dim_val, dim_idx){
+  this.current_vals[dim_idx] = dim_val;
+  var key = this.current_vals;
+  if (!this.dynamic) {
+    key = this.get_key(key)
+  }
+  if (this.dynamic || !this.cached) {
+    if ((this.time !== undefined) && ((this.wait) && ((this.time + 10000) > Date.now()))) {
+      this.queue.push(key);
+      return
+    }
+    this.queue = [];
+    this.time = Date.now();
+    this.current_frame = key;
+    this.wait = true;
+    this.dynamic_update(key)
+  } else if (key !== undefined) {
+    this.update(key)
+  }
+}
+
+
+/* Define the ScrubberWidget class */
+function ScrubberWidget(frames, num_frames, id, interval, load_json, mode, cached, json_path, dynamic, plot_id){
+  this.slider_id = "_anim_slider" + id;
+  this.loop_select_id = "_anim_loop_select" + id;
+  this.id = id;
+  this.plot_id = plot_id;
+  this.interval = interval;
+  this.current_frame = 0;
+  this.direction = 0;
+  this.dynamic = dynamic;
+  this.timer = null;
+  this.load_json = load_json;
+  this.mode = mode;
+  this.cached = cached;
+  this.frames = frames;
+  this.cache = {};
+  this.length = num_frames;
+  this.json_path = json_path;
+  document.getElementById(this.slider_id).max = this.length - 1;
+  this.init_slider(0);
+  this.wait = false;
+  this.queue = [];
+  if (!this.cached || this.dynamic) {
+    this.comm = this.init_comms()
+  }
+}
+
+ScrubberWidget.prototype = new HoloViewsWidget;
+
+ScrubberWidget.prototype.set_frame = function(frame){
+  this.current_frame = frame;
+  var widget = document.getElementById(this.slider_id);
+  if (widget === null) {
+    this.pause_animation();
+    return
+  }
+  widget.value = this.current_frame;
+  if (this.dynamic || !this.cached) {
+    if ((this.time !== undefined) && ((this.wait) && ((this.time + 10000) > Date.now()))) {
+      this.queue.push(frame);
+      return
+    }
+    this.queue = [];
+    this.time = Date.now();
+    this.wait = true;
+    this.dynamic_update(frame)
+  } else {
+    this.update(frame)
+  }
+}
+
+ScrubberWidget.prototype.get_loop_state = function(){
+  var button_group = document[this.loop_select_id].state;
+  for (var i = 0; i < button_group.length; i++) {
+    var button = button_group[i];
+    if (button.checked) {
+      return button.value;
+    }
+  }
+  return undefined;
+}
+
+
+ScrubberWidget.prototype.next_frame = function() {
+  this.set_frame(Math.min(this.length - 1, this.current_frame + 1));
+}
+
+ScrubberWidget.prototype.previous_frame = function() {
+  this.set_frame(Math.max(0, this.current_frame - 1));
+}
+
+ScrubberWidget.prototype.first_frame = function() {
+  this.set_frame(0);
+}
+
+ScrubberWidget.prototype.last_frame = function() {
+  this.set_frame(this.length - 1);
+}
+
+ScrubberWidget.prototype.slower = function() {
+  this.interval /= 0.7;
+  if(this.direction > 0){this.play_animation();}
+  else if(this.direction < 0){this.reverse_animation();}
+}
+
+ScrubberWidget.prototype.faster = function() {
+  this.interval *= 0.7;
+  if(this.direction > 0){this.play_animation();}
+  else if(this.direction < 0){this.reverse_animation();}
+}
+
+ScrubberWidget.prototype.anim_step_forward = function() {
+  if(this.current_frame < this.length - 1){
+    this.next_frame();
+  }else{
+    var loop_state = this.get_loop_state();
+    if(loop_state == "loop"){
+      this.first_frame();
+    }else if(loop_state == "reflect"){
+      this.last_frame();
+      this.reverse_animation();
+    }else{
+      this.pause_animation();
+      this.last_frame();
+    }
+  }
+}
+
+ScrubberWidget.prototype.anim_step_reverse = function() {
+  if(this.current_frame > 0){
+    this.previous_frame();
+  } else {
+    var loop_state = this.get_loop_state();
+    if(loop_state == "loop"){
+      this.last_frame();
+    }else if(loop_state == "reflect"){
+      this.first_frame();
+      this.play_animation();
+    }else{
+      this.pause_animation();
+      this.first_frame();
+    }
+  }
+}
+
+ScrubberWidget.prototype.pause_animation = function() {
+  this.direction = 0;
+  if (this.timer){
+    clearInterval(this.timer);
+    this.timer = null;
+  }
+}
+
+ScrubberWidget.prototype.play_animation = function() {
+  this.pause_animation();
+  this.direction = 1;
+  var t = this;
+  if (!this.timer) this.timer = setInterval(function(){t.anim_step_forward();}, this.interval);
+}
+
+ScrubberWidget.prototype.reverse_animation = function() {
+  this.pause_animation();
+  this.direction = -1;
+  var t = this;
+  if (!this.timer) this.timer = setInterval(function(){t.anim_step_reverse();}, this.interval);
+}
+
+function extend(destination, source) {
+  for (var k in source) {
+    if (source.hasOwnProperty(k)) {
+      destination[k] = source[k];
+    }
+  }
+  return destination;
+}
+
+function update_widget(widget, values) {
+  if (widget.hasClass("ui-slider")) {
+    widget.slider('option', {
+      min: 0,
+      max: values.length-1,
+      dim_vals: values,
+      value: 0,
+      dim_labels: values
+    })
+    widget.slider('option', 'slide').call(widget, event, {value: 0})
+  } else {
+    widget.empty();
+    for (var i=0; i<values.length; i++){
+      widget.append($("<option>", {
+        value: i,
+        text: values[i]
+      }))
+    };
+    widget.data('values', values);
+    widget.data('value', 0);
+    widget.trigger("change");
+  };
+}
+
+function init_slider(id, plot_id, dim, values, next_vals, labels, dynamic, step, value, next_dim,
+                     dim_idx, delay, jQueryUI_CDN, UNDERSCORE_CDN) {
+  // Slider JS Block START
+  function loadcssfile(filename){
+    var fileref=document.createElement("link")
+    fileref.setAttribute("rel", "stylesheet")
+    fileref.setAttribute("type", "text/css")
+    fileref.setAttribute("href", filename)
+    document.getElementsByTagName("head")[0].appendChild(fileref)
+  }
+  loadcssfile("https://code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.css");
+  /* Check if jQuery and jQueryUI have been loaded
+     otherwise load with require.js */
+  var jQuery = window.jQuery,
+    // check for old versions of jQuery
+    oldjQuery = jQuery && !!jQuery.fn.jquery.match(/^1\.[0-4](\.|$)/),
+    jquery_path = '',
+    paths = {},
+    noConflict;
+  var jQueryUI = jQuery.ui;
+  // check for jQuery
+  if (!jQuery || oldjQuery) {
+    // load if it's not available or doesn't meet min standards
+    paths.jQuery = jQuery;
+    noConflict = !!oldjQuery;
+  } else {
+    // register the current jQuery
+    define('jquery', [], function() { return jQuery; });
+  }
+  if (!jQueryUI) {
+    paths.jQueryUI = jQueryUI_CDN.slice(null, -3);
+  } else {
+    define('jQueryUI', [], function() { return jQuery.ui; });
+  }
+  paths.underscore = UNDERSCORE_CDN.slice(null, -3);
+  var jquery_require = {
+    paths: paths,
+    shim: {
+      "jQueryUI": {
+        exports:"$",
+        deps: ['jquery']
+      },
+      "underscore": {
+        exports: '_'
+      }
+    }
+  }
+  require.config(jquery_require);
+  require(["jQueryUI", "underscore"], function(jUI, _){
+    if (noConflict) $.noConflict(true);
+    var vals = values;
+    if (dynamic && vals.constructor === Array) {
+      var default_value = parseFloat(value);
+      var min = parseFloat(vals[0]);
+      var max = parseFloat(vals[vals.length-1]);
+      var wstep = step;
+      var wlabels = [default_value];
+      var init_label = default_value;
+    } else {
+      var min = 0;
+      if (dynamic) {
+        var max = Object.keys(vals).length - 1;
+        var init_label = labels[value];
+        var default_value = values[value];
+      } else {
+        var max = vals.length - 1;
+        var init_label = labels[value];
+        var default_value = value;
+      }
+      var wstep = 1;
+      var wlabels = labels;
+    }
+    function adjustFontSize(text) {
+      var width_ratio = (text.parent().width()/8)/text.val().length;
+      var size = Math.min(0.9, Math.max(0.6, width_ratio))+'em';
+      text.css('font-size', size);
+    }
+    var slider = $('#_anim_widget'+id+'_'+dim);
+    slider.slider({
+      animate: "fast",
+      min: min,
+      max: max,
+      step: wstep,
+      value: default_value,
+      dim_vals: vals,
+      dim_labels: wlabels,
+      next_vals: next_vals,
+      slide: function(event, ui) {
+        var vals = slider.slider("option", "dim_vals");
+        var next_vals = slider.slider("option", "next_vals");
+        var dlabels = slider.slider("option", "dim_labels");
+        if (dynamic) {
+          var dim_val = ui.value;
+          if (vals.constructor === Array) {
+            var label = ui.value;
+          } else {
+            var label = dlabels[ui.value];
+          }
+        } else {
+          var dim_val = vals[ui.value];
+          var label = dlabels[ui.value];
+        }
+        var text = $('#textInput'+id+'_'+dim);
+        text.val(label);
+        adjustFontSize(text);
+        HoloViews.index[plot_id].set_frame(dim_val, dim_idx);
+        if (Object.keys(next_vals).length > 0) {
+          var new_vals = next_vals[dim_val];
+          var next_widget = $('#_anim_widget'+id+'_'+next_dim);
+          update_widget(next_widget, new_vals);
+        }
+      }
+    });
+    slider.keypress(function(event) {
+      if (event.which == 80 || event.which == 112) {
+        var start = slider.slider("option", "value");
+        var stop =  slider.slider("option", "max");
+        for (var i=start; i<=stop; i++) {
+          var delay = i*delay;
+          $.proxy(function doSetTimeout(i) { setTimeout($.proxy(function() {
+            var val = {value:i};
+            slider.slider('value',i);
+            slider.slider("option", "slide")(null, val);
+          }, slider), delay);}, slider)(i);
+        }
+      }
+      if (event.which == 82 || event.which == 114) {
+        var start = slider.slider("option", "value");
+        var stop =  slider.slider("option", "min");
+        var count = 0;
+        for (var i=start; i>=stop; i--) {
+          var delay = count*delay;
+          count = count + 1;
+          $.proxy(function doSetTimeout(i) { setTimeout($.proxy(function() {
+            var val = {value:i};
+            slider.slider('value',i);
+            slider.slider("option", "slide")(null, val);
+          }, slider), delay);}, slider)(i);
+        }
+      }
+    });
+    var textInput = $('#textInput'+id+'_'+dim)
+    textInput.val(init_label);
+    adjustFontSize(textInput);
+  });
+}
+
+function init_dropdown(id, plot_id, dim, vals, value, next_vals, labels, next_dim, dim_idx, dynamic) {
+  var widget = $("#_anim_widget"+id+'_'+dim);
+  widget.data('values', vals)
+  for (var i=0; i<vals.length; i++){
+    if (dynamic) {
+      var val = vals[i];
+    } else {
+      var val = i;
+    }
+    widget.append($("<option>", {
+      value: val,
+      text: labels[i]
+    }));
+  };
+  widget.data("next_vals", next_vals);
+  widget.val(value);
+  widget.on('change', function(event, ui) {
+    if (dynamic) {
+      var dim_val = parseInt(this.value);
+    } else {
+      var dim_val = $.data(this, 'values')[this.value];
+    }
+    var next_vals = $.data(this, "next_vals");
+    if (Object.keys(next_vals).length > 0) {
+      var new_vals = next_vals[dim_val];
+      var next_widget = $('#_anim_widget'+id+'_'+next_dim);
+      update_widget(next_widget, new_vals);
+    }
+    var widgets = HoloViews.index[plot_id]
+    if (widgets) {
+      widgets.set_frame(dim_val, dim_idx);
+    }
+  });
+}
+
+
+if (window.HoloViews === undefined) {
+  window.HoloViews = {}
+  window.PyViz = window.HoloViews
+} else if (window.PyViz === undefined) {
+  window.PyViz = window.HoloViews
+}
+
+
+var _namespace = {
+  init_slider: init_slider,
+  init_dropdown: init_dropdown,
+  comms: {},
+  comm_status: {},
+  index: {},
+  plot_index: {},
+  kernels: {},
+  receivers: {}
+}
+
+for (var k in _namespace) {
+  if (!(k in window.HoloViews)) {
+    window.HoloViews[k] = _namespace[k];
+  }
+}
+
+// Define Bokeh specific subclasses
+function BokehSelectionWidget() {
+  SelectionWidget.apply(this, arguments);
+}
+
+function BokehScrubberWidget() {
+  ScrubberWidget.apply(this, arguments);
+}
+
+// Let them inherit from the baseclasses
+BokehSelectionWidget.prototype = Object.create(SelectionWidget.prototype);
+BokehScrubberWidget.prototype = Object.create(ScrubberWidget.prototype);
+
+// Define methods to override on widgets
+var BokehMethods = {
+  update_cache : function(){
+    for (var index in this.frames) {
+      this.frames[index] = JSON.parse(this.frames[index]);
+    }
+  },
+  update : function(current){
+    if (current === undefined) {
+      return;
+    }
+    var data = this.frames[current];
+    if (data !== undefined) {
+      if (data.root in HoloViews.plot_index) {
+        var doc = HoloViews.plot_index[data.root].model.document;
+      } else {
+        var doc = Bokeh.index[data.root].model.document;
+      }
+      doc.apply_json_patch(data.content);
+    }
+  },
+  init_comms: function() {
+    if (Bokeh.protocol !== undefined) {
+      this.receiver = new Bokeh.protocol.Receiver()
+    } else {
+      this.receiver = null;
+    }
+    return HoloViewsWidget.prototype.init_comms.call(this);
+  },
+  process_msg : function(msg) {
+    if (this.plot_id in HoloViews.plot_index) {
+      var doc = HoloViews.plot_index[this.plot_id].model.document;
+    } else {
+      var doc = Bokeh.index[this.plot_id].model.document;
+    }
+    if (this.receiver === null) { return }
+    var receiver = this.receiver;
+    if (msg.buffers.length > 0) {
+      receiver.consume(msg.buffers[0].buffer)
+    } else {
+      receiver.consume(msg.content.data)
+    }
+    const comm_msg = receiver.message;
+    if ((comm_msg != null) && (doc != null)) {
+      doc.apply_json_patch(comm_msg.content, comm_msg.buffers)
+    }
+  }
+}
+
+// Extend Bokeh widgets with backend specific methods
+extend(BokehSelectionWidget.prototype, BokehMethods);
+extend(BokehScrubberWidget.prototype, BokehMethods);
+
+window.HoloViews.BokehSelectionWidget = BokehSelectionWidget
+window.HoloViews.BokehScrubberWidget = BokehScrubberWidget
+</script>
+<script type="text/javascript">
+    function JupyterCommManager() {
+    }
+
+    JupyterCommManager.prototype.register_target = function(plot_id, comm_id, msg_handler) {
+      if (window.comm_manager || ((window.Jupyter !== undefined) && (Jupyter.notebook.kernel != null))) {
+        var comm_manager = window.comm_manager || Jupyter.notebook.kernel.comm_manager;
+        comm_manager.register_target(comm_id, function(comm) {
+          comm.on_msg(msg_handler);
+        });
+      } else if ((plot_id in window.PyViz.kernels) && (window.PyViz.kernels[plot_id])) {
+        window.PyViz.kernels[plot_id].registerCommTarget(comm_id, function(comm) {
+          comm.onMsg = msg_handler;
+        });
+      }
+    }
+
+    JupyterCommManager.prototype.get_client_comm = function(plot_id, comm_id, msg_handler) {
+      if (comm_id in window.PyViz.comms) {
+        return window.PyViz.comms[comm_id];
+      } else if (window.comm_manager || ((window.Jupyter !== undefined) && (Jupyter.notebook.kernel != null))) {
+        var comm_manager = window.comm_manager || Jupyter.notebook.kernel.comm_manager;
+        var comm = comm_manager.new_comm(comm_id, {}, {}, {}, comm_id);
+        if (msg_handler) {
+          comm.on_msg(msg_handler);
+        }
+      } else if ((plot_id in window.PyViz.kernels) && (window.PyViz.kernels[plot_id])) {
+        var comm = window.PyViz.kernels[plot_id].connectToComm(comm_id);
+        comm.open();
+        if (msg_handler) {
+          comm.onMsg = msg_handler;
+        }
+      }
+
+      window.PyViz.comms[comm_id] = comm;
+      return comm;
+    }
+
+    window.PyViz.comm_manager = new JupyterCommManager();
+    </script>
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.css">
+<style>div.hololayout {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+div.holoframe {
+  width: 75%;
+}
+
+div.holowell {
+  display: flex;
+  align-items: center;
+}
+
+form.holoform {
+  background-color: #fafafa;
+  border-radius: 5px;
+  overflow: hidden;
+  padding-left: 0.8em;
+  padding-right: 0.8em;
+  padding-top: 0.4em;
+  padding-bottom: 0.4em;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+  border: 1px solid #e3e3e3;
+}
+
+div.holowidgets {
+  padding-right: 0;
+  width: 25%;
+}
+
+div.holoslider {
+  min-height: 0 !important;
+  height: 0.8em;
+  width: 100%;
+}
+
+div.holoformgroup {
+  padding-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+div.hologroup {
+  padding-left: 0;
+  padding-right: 0.8em;
+  width: 100%;
+}
+
+.holoselect {
+  width: 92%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.holotext {
+  padding-left:  0.5em;
+  padding-right: 0;
+  width: 100%;
+}
+
+.holowidgets .ui-resizable-se {
+  visibility: hidden
+}
+
+.holoframe > .ui-resizable-se {
+  visibility: hidden
+}
+
+.holowidgets .ui-resizable-s {
+  visibility: hidden
+}
+
+
+/* CSS rules for noUISlider based slider used by JupyterLab extension  */
+
+.noUi-handle {
+  width: 20px !important;
+  height: 20px !important;
+  left: -5px !important;
+  top: -5px !important;
+}
+
+.noUi-handle:before, .noUi-handle:after {
+  visibility: hidden;
+  height: 0px;
+}
+
+.noUi-target {
+  margin-left: 0.5em;
+  margin-right: 0.5em;
+}
+
+div.bk-hbox {
+    display: flex;
+    justify-content: center;
+}
+
+div.bk-hbox div.bk-plot {
+    padding: 8px;
+}
+
+div.bk-hbox div.bk-data-table {
+    padding: 20px;
+}
+</style><div class="hololayout row row-fluid">
+  <div class="holoframe" id="display_area65d70c101aaf4bef953cc2d2af2777e1">
+    <div id="_anim_img65d70c101aaf4bef953cc2d2af2777e1">
+      
+      <div id='120600' style='display: table; margin: 0 auto;'>
+
+
+
+
+
+  <div class="bk-root" id="2cb19b87-2423-482a-988e-8d017f289712" data-root-id="120600"></div>
+</div>
+      
+    </div>
+  </div>
+  <div class="holowidgets" id="widget_area65d70c101aaf4bef953cc2d2af2777e1">
+    <form class="holoform well" id="form65d70c101aaf4bef953cc2d2af2777e1">
+      
+      
+      <div class="form-group control-group holoformgroup" style=''>
+        <label for="textInput65d70c101aaf4bef953cc2d2af2777e1_time">
+          <strong>time:</strong>
+        </label>
+        <div class="holowell">
+          <div class="hologroup">
+            <input type="text" class="holotext form-control input-small"
+                   id="textInput65d70c101aaf4bef953cc2d2af2777e1_time" value="" readonly>
+          </div>
+          <div class="holoslider"
+               id="_anim_widget65d70c101aaf4bef953cc2d2af2777e1_time"></div>
+        </div>
+      </div>
+      
+        
+        </form>
+    </div>
+</div>
+<script type="text/javascript">/* Instantiate the BokehSelectionWidget class. */
+/* The IDs given should match those used in the template above. */
+var widget_ids = new Array(1);
+
+
+widget_ids[0] = "_anim_widget65d70c101aaf4bef953cc2d2af2777e1_time";
+
+
+function create_widget() {
+  var frame_data = {};
+  var dim_vals = [0.0];
+  var keyMap = {};
+  var notFound = "<h2 style='vertical-align: middle>No frame at selected dimension value.<h2>";
+
+  var anim = new HoloViews.BokehSelectionWidget(frame_data, "65d70c101aaf4bef953cc2d2af2777e1", widget_ids,
+  keyMap, dim_vals, notFound, false, "default",
+  false, "./json_figures/", true, "120600");
+
+  HoloViews.index['120600'] = anim;
+}
+
+
+
+
+HoloViews.init_slider('65d70c101aaf4bef953cc2d2af2777e1', '120600', 'time', {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10, 11: 11, 12: 12, 13: 13, 14: 14, 15: 15, 16: 16, 17: 17, 18: 18, 19: 19, 20: 20, 21: 21, 22: 22, 23: 23, 24: 24, 25: 25, 26: 26, 27: 27, 28: 28, 29: 29, 30: 30, 31: 31, 32: 32, 33: 33, 34: 34, 35: 35, 36: 36, 37: 37, 38: 38}, {}, ['2017-09-25 06:40:35', '2017-09-25 06:40:45', '2017-09-25 06:40:55', '2017-09-25 06:41:05', '2017-09-25 06:41:15', '2017-09-25 06:41:25', '2017-09-25 06:41:35', '2017-09-25 06:41:45', '2017-09-25 06:41:55', '2017-09-25 06:42:05', '2017-09-25 06:42:15', '2017-09-25 06:42:25', '2017-09-25 06:42:35', '2017-09-25 06:42:45', '2017-09-25 06:42:55', '2017-09-25 06:43:05', '2017-09-25 06:43:15', '2017-09-25 06:43:25', '2017-09-25 06:43:35', '2017-09-25 06:43:45', '2017-09-25 06:43:55', '2017-09-25 06:44:05', '2017-09-25 06:44:15', '2017-09-25 06:44:25', '2017-09-25 06:44:35', '2017-09-25 06:44:45', '2017-09-25 06:44:55', '2017-09-25 06:45:05', '2017-09-25 06:45:15', '2017-09-25 06:45:25', '2017-09-25 06:45:35', '2017-09-25 06:45:45', '2017-09-25 06:45:55', '2017-09-25 06:46:05', '2017-09-25 06:46:15', '2017-09-25 06:46:25', '2017-09-25 06:46:35', '2017-09-25 06:46:45', '2017-09-25 06:46:55'], true, 1, 0, 'None', 0, 50, 'https://code.jquery.com/ui/1.10.4/jquery-ui.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js')
+
+
+
+
+create_widget();
+
+// Ugly hack - see HoloViews #2574 for more information
+if (!(document.getElementById('120600')) && !(document.getElementById('_anim_imgNone'))) {
+  console.log("Creating DOM nodes dynamically for assumed nbconvert export. To generate clean HTML output set HV_DOC_HTML as an environment variable.")
+  var htmlObject = document.createElement('div');
+  htmlObject.innerHTML = `<div id='120600' style='display: table; margin: 0 auto;'>
+
+
+
+
+
+  <div class="bk-root" id="2cb19b87-2423-482a-988e-8d017f289712" data-root-id="120600"></div>
+</div>`;
+  var scriptTags = document.getElementsByTagName('script');
+  var parentTag = scriptTags[scriptTags.length-1].parentNode;
+  if (parentTag.attributes.length && (parentTag.attributes[0].name == 'data-shell-mode')) {
+    alert('Displaying PyViz objects in JupyterLab requires the jupyterlab_pyviz extension to be installed, install it with:\n\n\tjupyter labextension install @pyviz/jupyterlab_pyviz');
+  } else {
+    parentTag.append(htmlObject)
+  }
+}
+(function(root) {
+  function embed_document(root) {
+    
+  var docs_json = {"2e73cf1e-ae89-434d-a969-fdbaef276382":{"roots":{"references":[{"attributes":{"below":[{"id":"120609","type":"LogAxis"}],"center":[{"id":"120613","type":"Grid"},{"id":"120618","type":"Grid"}],"left":[{"id":"120614","type":"LogAxis"}],"margin":null,"min_border_bottom":10,"min_border_left":10,"min_border_right":10,"min_border_top":10,"plot_height":500,"plot_width":700,"renderers":[{"id":"120643","type":"GlyphRenderer"},{"id":"120651","type":"GlyphRenderer"},{"id":"120659","type":"GlyphRenderer"}],"sizing_mode":"fixed","title":{"id":"120601","type":"Title"},"toolbar":{"id":"120624","type":"Toolbar"},"x_range":{"id":"120595","type":"Range1d"},"x_scale":{"id":"120605","type":"LogScale"},"y_range":{"id":"120596","type":"Range1d"},"y_scale":{"id":"120607","type":"LogScale"}},"id":"120600","subtype":"Figure","type":"Plot"},{"attributes":{"num_minor_ticks":10},"id":"120610","type":"LogTicker"},{"attributes":{"ticker":null},"id":"120635","type":"LogTickFormatter"},{"attributes":{"line_alpha":0.2,"line_color":"#ff7f0e","line_width":2,"x":{"field":"k_rpm"},"y":{"field":"corrdTdzsp1_rpm"}},"id":"120650","type":"Line"},{"attributes":{"grid_line_color":null,"ticker":{"id":"120610","type":"LogTicker"}},"id":"120613","type":"Grid"},{"attributes":{"callback":null,"data":{"batchelor":{"__ndarray__":"RhuuA6eVXz6IpgYILoZlPqlSXQ9N72o+GnU9CNY7cT5FS4MF98R2PrA1U8EME30+55vJue57gT5cCX67F8aDPlH7eaSGioQ+48WU/VNygj4TGZozqR16PvtS6EEcA2k+pWXOaPwcSD443VfuG3IKPh+8wd3tjZY9Yb5CJDKdvzxxoHSx9SUoOw5bIlb4+Cc4Z9hbzTB/eTKrXitYjHaxJw==","dtype":"float64","shape":[20]},"chi1":{"__ndarray__":"7NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PQ==","dtype":"float64","shape":[20]},"eps1":{"__ndarray__":"lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PQ==","dtype":"float64","shape":[20]},"k_rpm":{"__ndarray__":"4ij7gzCQIEBiNFHqQzAnQKYnX0hX0C1AwjpKOzrgM0ATwyN5Uig8QMI6Sjs64ENACCnOGVBUS0A0o7mbNqJSQPmTAjpLrFlAb8CLIzTOYUBzMrchSKNoQOj1pbMx+nBA5ZomgkRld0CeQwhMLyaAQJg04mABT4ZAbCORNhrMjkBwONI7Xj+VQLqKZvJ1Up1AMoUJS6s5pEBMJ8XHEearQA==","dtype":"float64","shape":[20]}},"selected":{"id":"120654","type":"Selection"},"selection_policy":{"id":"120671","type":"UnionRenderers"}},"id":"120653","type":"ColumnDataSource"},{"attributes":{},"id":"120607","type":"LogScale"},{"attributes":{"ticker":null},"id":"120633","type":"LogTickFormatter"},{"attributes":{"axis_label":"k_z","bounds":"auto","formatter":{"id":"120633","type":"LogTickFormatter"},"major_label_orientation":"horizontal","ticker":{"id":"120610","type":"LogTicker"}},"id":"120609","type":"LogAxis"},{"attributes":{"line_alpha":0.1,"line_color":"#ff7f0e","line_width":2,"x":{"field":"k_rpm"},"y":{"field":"corrdTdzsp1_rpm"}},"id":"120649","type":"Line"},{"attributes":{"axis_label":"dPhidz","bounds":"auto","formatter":{"id":"120635","type":"LogTickFormatter"},"major_label_orientation":"horizontal","ticker":{"id":"120615","type":"LogTicker"}},"id":"120614","type":"LogAxis"},{"attributes":{"source":{"id":"120653","type":"ColumnDataSource"}},"id":"120660","type":"CDSView"},{"attributes":{"callback":null,"data":{"chi1":{"__ndarray__":"7NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PQ==","dtype":"float64","shape":[20]},"eps1":{"__ndarray__":"lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PQ==","dtype":"float64","shape":[20]},"k_rpm":{"__ndarray__":"4ij7gzCQIEBiNFHqQzAnQKYnX0hX0C1AwjpKOzrgM0ATwyN5Uig8QMI6Sjs64ENACCnOGVBUS0A0o7mbNqJSQPmTAjpLrFlAb8CLIzTOYUBzMrchSKNoQOj1pbMx+nBA5ZomgkRld0CeQwhMLyaAQJg04mABT4ZAbCORNhrMjkBwONI7Xj+VQLqKZvJ1Up1AMoUJS6s5pEBMJ8XHEearQA==","dtype":"float64","shape":[20]},"noise":{"__ndarray__":"sCgp1KzDpj1SeGBdIE+2PQl+o4FtcMI9grv50vNj0D2BZufxknLgPZYcLJQmZPA9W+rLcAj+/j3jRVwRRtIMPg4uwKICXxs+PI6Tw1hfKj6Bfwnn01k5PikilN6lVEg+m81UTqa+Vz4yI2K9q0hoPnCj/aJPnHs+xEQsrw6Zkz7iYIQYeUa0PhfSXuF4ceA+C8jO2CT4Ej/Fv1uWdbJKPw==","dtype":"float64","shape":[20]}},"selected":{"id":"120638","type":"Selection"},"selection_policy":{"id":"120667","type":"UnionRenderers"}},"id":"120637","type":"ColumnDataSource"},{"attributes":{"num_minor_ticks":10},"id":"120615","type":"LogTicker"},{"attributes":{},"id":"120638","type":"Selection"},{"attributes":{},"id":"120654","type":"Selection"},{"attributes":{"text":"Temperature Gradient Spectra","text_color":{"value":"black"},"text_font_size":{"value":"12pt"}},"id":"120601","type":"Title"},{"attributes":{},"id":"120605","type":"LogScale"},{"attributes":{"dimension":1,"grid_line_color":null,"ticker":{"id":"120615","type":"LogTicker"}},"id":"120618","type":"Grid"},{"attributes":{"data_source":{"id":"120645","type":"ColumnDataSource"},"glyph":{"id":"120648","type":"Line"},"hover_glyph":null,"muted_glyph":{"id":"120650","type":"Line"},"nonselection_glyph":{"id":"120649","type":"Line"},"selection_glyph":null,"view":{"id":"120652","type":"CDSView"}},"id":"120651","type":"GlyphRenderer"},{"attributes":{"line_color":"#1f77b4","line_width":2,"x":{"field":"k_rpm"},"y":{"field":"noise"}},"id":"120640","type":"Line"},{"attributes":{"source":{"id":"120645","type":"ColumnDataSource"}},"id":"120652","type":"CDSView"},{"attributes":{"line_color":"#2ca02c","line_width":2,"x":{"field":"k_rpm"},"y":{"field":"batchelor"}},"id":"120656","type":"Line"},{"attributes":{"line_alpha":0.1,"line_color":"#1f77b4","line_width":2,"x":{"field":"k_rpm"},"y":{"field":"noise"}},"id":"120641","type":"Line"},{"attributes":{"line_alpha":0.2,"line_color":"#1f77b4","line_width":2,"x":{"field":"k_rpm"},"y":{"field":"noise"}},"id":"120642","type":"Line"},{"attributes":{"data_source":{"id":"120653","type":"ColumnDataSource"},"glyph":{"id":"120656","type":"Line"},"hover_glyph":null,"muted_glyph":{"id":"120658","type":"Line"},"nonselection_glyph":{"id":"120657","type":"Line"},"selection_glyph":null,"view":{"id":"120660","type":"CDSView"}},"id":"120659","type":"GlyphRenderer"},{"attributes":{"line_alpha":0.2,"line_color":"#2ca02c","line_width":2,"x":{"field":"k_rpm"},"y":{"field":"batchelor"}},"id":"120658","type":"Line"},{"attributes":{"data_source":{"id":"120637","type":"ColumnDataSource"},"glyph":{"id":"120640","type":"Line"},"hover_glyph":null,"muted_glyph":{"id":"120642","type":"Line"},"nonselection_glyph":{"id":"120641","type":"Line"},"selection_glyph":null,"view":{"id":"120644","type":"CDSView"}},"id":"120643","type":"GlyphRenderer"},{"attributes":{},"id":"120669","type":"UnionRenderers"},{"attributes":{"callback":null,"end":0.01,"reset_end":0.01,"reset_start":1e-09,"start":1e-09,"tags":[[["noise","noise",null]]]},"id":"120596","type":"Range1d"},{"attributes":{"source":{"id":"120637","type":"ColumnDataSource"}},"id":"120644","type":"CDSView"},{"attributes":{},"id":"120667","type":"UnionRenderers"},{"attributes":{"callback":null,"end":3571.0347272501403,"reset_end":3571.0347272501403,"reset_start":8.281620144280565,"start":8.281620144280565,"tags":[[["k_rpm","k_rpm",null]]]},"id":"120595","type":"Range1d"},{"attributes":{"active_drag":"auto","active_inspect":"auto","active_multi":null,"active_scroll":"auto","active_tap":"auto","tools":[{"id":"120597","type":"HoverTool"},{"id":"120598","type":"HoverTool"},{"id":"120599","type":"HoverTool"},{"id":"120619","type":"SaveTool"},{"id":"120620","type":"PanTool"},{"id":"120621","type":"WheelZoomTool"},{"id":"120622","type":"BoxZoomTool"},{"id":"120623","type":"ResetTool"}]},"id":"120624","type":"Toolbar"},{"attributes":{},"id":"120619","type":"SaveTool"},{"attributes":{},"id":"120621","type":"WheelZoomTool"},{"attributes":{"callback":null,"renderers":[{"id":"120643","type":"GlyphRenderer"}],"tooltips":[["k_rpm","@{k_rpm}"],["noise","@{noise}"],["eps1","@{eps1}"],["chi1","@{chi1}"]]},"id":"120597","type":"HoverTool"},{"attributes":{},"id":"120620","type":"PanTool"},{"attributes":{},"id":"120623","type":"ResetTool"},{"attributes":{"line_color":"#ff7f0e","line_width":2,"x":{"field":"k_rpm"},"y":{"field":"corrdTdzsp1_rpm"}},"id":"120648","type":"Line"},{"attributes":{"callback":null,"renderers":[{"id":"120651","type":"GlyphRenderer"}],"tooltips":[["k_rpm","@{k_rpm}"],["corrdTdzsp1_rpm","@{corrdTdzsp1_rpm}"],["eps1","@{eps1}"],["chi1","@{chi1}"]]},"id":"120598","type":"HoverTool"},{"attributes":{"overlay":{"id":"120672","type":"BoxAnnotation"}},"id":"120622","type":"BoxZoomTool"},{"attributes":{"line_alpha":0.1,"line_color":"#2ca02c","line_width":2,"x":{"field":"k_rpm"},"y":{"field":"batchelor"}},"id":"120657","type":"Line"},{"attributes":{},"id":"120671","type":"UnionRenderers"},{"attributes":{"bottom_units":"screen","fill_alpha":{"value":0.5},"fill_color":{"value":"lightgrey"},"left_units":"screen","level":"overlay","line_alpha":{"value":1.0},"line_color":{"value":"black"},"line_dash":[4,4],"line_width":{"value":2},"render_mode":"css","right_units":"screen","top_units":"screen"},"id":"120672","type":"BoxAnnotation"},{"attributes":{},"id":"120646","type":"Selection"},{"attributes":{"callback":null,"renderers":[{"id":"120659","type":"GlyphRenderer"}],"tooltips":[["k_rpm","@{k_rpm}"],["batchelor","@{batchelor}"],["eps1","@{eps1}"],["chi1","@{chi1}"]]},"id":"120599","type":"HoverTool"},{"attributes":{"callback":null,"data":{"chi1":{"__ndarray__":"7NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PezcZZlen7097NxlmV6fvT3s3GWZXp+9PQ==","dtype":"float64","shape":[20]},"corrdTdzsp1_rpm":{"__ndarray__":"YamXUwFe2D5y4AbTJCnMPpjGZG8+VsE+QDZ2weH1mT45sXjsAZCSPq+MWYGvoo8+aLCyDGsvej536BN4OuaQPuLk/BXZ4ZU+u3VWmJotcj5XQDY4WJFYPsgXdFDkfls+c6MUQUWXYD5PJxWrJ7RxPtaDKuXiZns+fXXChyfumD4iVow7cfWrPor5VnyOUtU+pEK4MX8mFj9w6zrO7z1FPw==","dtype":"float64","shape":[20]},"eps1":{"__ndarray__":"lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PZX+vGZ6j7s9lf68ZnqPuz2V/rxmeo+7PQ==","dtype":"float64","shape":[20]},"k_rpm":{"__ndarray__":"4ij7gzCQIEBiNFHqQzAnQKYnX0hX0C1AwjpKOzrgM0ATwyN5Uig8QMI6Sjs64ENACCnOGVBUS0A0o7mbNqJSQPmTAjpLrFlAb8CLIzTOYUBzMrchSKNoQOj1pbMx+nBA5ZomgkRld0CeQwhMLyaAQJg04mABT4ZAbCORNhrMjkBwONI7Xj+VQLqKZvJ1Up1AMoUJS6s5pEBMJ8XHEearQA==","dtype":"float64","shape":[20]}},"selected":{"id":"120646","type":"Selection"},"selection_policy":{"id":"120669","type":"UnionRenderers"}},"id":"120645","type":"ColumnDataSource"}],"root_ids":["120600"]},"title":"Bokeh Application","version":"1.3.1"}};
+  var render_items = [{"docid":"2e73cf1e-ae89-434d-a969-fdbaef276382","roots":{"120600":"2cb19b87-2423-482a-988e-8d017f289712"}}];
+  root.Bokeh.embed.embed_items_notebook(docs_json, render_items);
+
+  }
+  if (root.Bokeh !== undefined) {
+    embed_document(root);
+  } else {
+    var attempts = 0;
+    var timer = setInterval(function(root) {
+      if (root.Bokeh !== undefined) {
+        embed_document(root);
+        clearInterval(timer);
+      }
+      attempts++;
+      if (attempts > 100) {
+        console.log("Bokeh: ERROR: Unable to run BokehJS code because BokehJS library is missing");
+        clearInterval(timer);
+      }
+    }, 10, root)
+  }
+})(window);</script>

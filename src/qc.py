@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from cmocean import cm
 
-from tools import str2date
+from tools import str2date, avg_funs
 
 # set up figure params
 sns.set(style='ticks', context='paper')
@@ -91,13 +91,6 @@ def qc_turbulence(data):
     data = data.drop(
         ['eps1', 'eps2', 'chi1', 'chi2', 'kT1', 'kT2', 'dtdz1', 'dtdz2'])
     return data
-
-
-def avg_funs(array1, array2):
-    '''take average taking into account nans'''
-    concat = xr.concat([array1, array2], dim='temp')
-    return concat.mean(dim='temp')
-
 
 def qc_velocity(data):
     Wmin = 0.05
