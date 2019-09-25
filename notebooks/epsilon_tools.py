@@ -78,7 +78,7 @@ def H2FP07fun(Hz, w):
     gamma = -0.32 # Gregg&Meager, 1980
     tau0 = 0.005 # [ms] Gregg&Meager, 1980
     tau = tau0 * w**gamma
-    return (1 + (2 * np.pi * Hz * tau)**2)**(-1)
+    return (1 + (2 * np.pi * Hz * tau)**2)**(-2)
 
 
 def H2preampfun(Hz):
@@ -118,9 +118,6 @@ def kraichnan(k_rpm, chi, kb_rpm):
 def noise_sp(f_cps):
     # noisesp = 1.0e-11 * [1+(f/130)**3]**2
     return 1e-11 * (1 + (f_cps / 20)**3)**2
-
-
-
 
 def remove_noise_sp(tms, threshold):
     '''
