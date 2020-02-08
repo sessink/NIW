@@ -28,7 +28,7 @@ def qc_turbulence(data):
     dtdzmin = 1.5e-3
     chimax = 5e-5
     kTmax = 1e-1
-    zmin = -10
+    zmin = 0 # disabled
     # for ratios
     lb = 0.5
     ub = 2
