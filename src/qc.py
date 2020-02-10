@@ -44,12 +44,12 @@ def qc_turbulence(data):
     data['dtdz1'] = np.sqrt(0.5 * data.chi1 / data.kT1)
     data['dtdz2'] = np.sqrt(0.5 * data.chi2 / data.kT2)
 
-    bad = (data.dtdz1 <= dtdzmin) | (data.chi1 >= chimax) | (data.kT1 >= kTmax) | (data.z > zmin)
+    bad = (data.dtdz1 <= dtdzmin) | (data.chi1 >= chimax) | (data.kT1 >= kTmax) #| (data.z > zmin)
     data['chi1'] = data['chi1'].where(~bad)
     data['kT1'] = data['kT1'].where(~bad)
     data['eps1'] = data['eps1'].where(~bad)
 
-    bad = (data.dtdz2 <= dtdzmin) | (data.chi2 >= chimax) | (data.kT2 >= kTmax) | (data.z > zmin)
+    bad = (data.dtdz2 <= dtdzmin) | (data.chi2 >= chimax) | (data.kT2 >= kTmax) #| (data.z > zmin)
     data['chi2'] = data['chi2'].where(~bad)
     data['kT2'] = data['kT2'].where(~bad)
     data['eps2'] = data['eps2'].where(~bad)
