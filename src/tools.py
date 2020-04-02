@@ -1,3 +1,6 @@
+import numpy as np
+import xarray as xr
+
 def load_matfile(file):
     '''Read Matlab structure files and convert to numpy arrays'''
     import scipy.io as sio
@@ -44,6 +47,44 @@ def compute_mld(data):
     data['mld'] = ('time', mld)
     return data
 
+def interp_in_space(twod, oned):
+    collect = []
+    for t in oned.time:
+        temp1 = oned.sel(time=t)
+        temp2 = twod.sel(time=t)
+
+        if ~temp2.lon.isnull() & ~temp2.lat.isnull():
+            collect.append(temp1.interp(lon=temp2.lon,lat=temp2.lat))
+    collect = xr.concat(collect,dim='time')
+    return collect
+
+def integrate_columns(data,lower,upper):
+    '''
+        Integrate each profile over depth range, e.g., MLD to 0.
+    '''
+    # mld=data.mld
+    data = data.where( (data.z >= lower) & (data.z < upper) )
+    data['z'] = data.z * (-1)
+    array = []
+    for t in range(data.time.size):
+        # TODO: could do better here with simpson's rule
+        if data.isel(time=t).dropna('z').size > 3:
+            array.append(data.isel(time=t).dropna('z').integrate('z'))
+        else:
+            array.append(data.isel(time=t).dropna('z').integrate('z')*np.nan)
+
+    # find zmin observed depth
+    if np.mean(upper)==0:
+        zmin = data[first_finite(data,0)].z
+    else:
+        zmin = upper
+    # xr.concat(array/(lower-zmin), dim='time')
+    return xr.concat(array, dim='time')
+
+def first_finite(arr, axis):
+    '''spits out the indices'''
+    mask = arr.notnull()
+    return xr.where(mask.any(axis=axis), mask.argmax(axis=axis), np.nan).fillna(0).astype(int)
 
 def exp_moving_avg(data, tau):
     '''

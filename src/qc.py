@@ -38,7 +38,7 @@ def qc_turbulence(data):
         '7700b', '7701b','7780b', '7784b', '7785b', '7786b'
     ])
     fi = np.where(floats == data.floatid)[0][0]
-    good_chi1, good_chi2 = np.load('data/xarray/good_chi.npy')
+    good_chi1, good_chi2 = np.load('../data/xarray/good_chi.npy')
 
     # 1) thresholds for chi
     data['dtdz1'] = np.sqrt(0.5 * data.chi1 / data.kT1)
@@ -202,8 +202,8 @@ def qc(infile, outfile, figurepath1, figurepath2):
 
 
 # %% MAIN
-qc(snakemake.input, snakemake.output[0], snakemake.output[1],
-   snakemake.output[2])
+# qc(snakemake.input, snakemake.output[0], snakemake.output[1],
+   # snakemake.output[2])
 
 # %% testing
 # infile = 'data/xarray/xr_7784b.nc'
