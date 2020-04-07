@@ -64,7 +64,7 @@ def integrate_columns(data,lower,upper):
     '''
     # mld=data.mld
     data = data.where( (data.z >= lower) & (data.z < upper) )
-    data['z'] = data.z * (-1)
+    # data['z'] = data.z * (-1)
     array = []
     for t in range(data.time.size):
         # TODO: could do better here with simpson's rule
@@ -80,6 +80,41 @@ def integrate_columns(data,lower,upper):
         zmin = upper
     # xr.concat(array/(lower-zmin), dim='time')
     return xr.concat(array, dim='time')
+
+def bandpass_velocity(raw):
+    import xrscipy.signal as dsp
+    import gsw
+
+    lat_mean = raw.lat.mean()
+
+    # convert datetime to seconds since t=0
+    raw['dtime'] = (raw.time - raw.time.isel(time=0))*1e-9
+    # make dtime a dimension
+    raw = raw.swap_dims({'time':'dtime'})
+
+    # filtering proceduce
+    # determine sampling timestep and Nyquist frequency
+    fs = ( dsp.get_sampling_step(raw, dim='time')*1e-9 )
+    ny = 2*np.pi/fs
+
+    # limits for bandpass
+    low_f = gsw.f(lat_mean)*0.8 # in 1/s
+    high_f = gsw.f(lat_mean)*1.2 # in 1/s
+    eps=0 # how to fill nans
+    # pick an order?
+    ulow = dsp.bandpass(raw.u.fillna(eps), low_f/ny, high_f/ny, dim='dtime', in_nyq=True, order=4)
+    vlow = dsp.bandpass(raw.v.fillna(eps), low_f/ny, high_f/ny, dim='dtime', in_nyq=True, order=4)
+
+    # swap dims back
+    ulow = ulow.swap_dims({'dtime':'time'})
+    vlow = vlow.swap_dims({'dtime':'time'})
+    raw = raw.swap_dims({'dtime':'time'})
+
+    # remove time and space means?
+    ulow = ulow #- ulow.mean(dim='z') - ulow.mean(dim='time')
+    vlow = vlow #- vlow.mean(dim='z') - ulow.mean(dim='time')
+
+    return ulow, vlow
 
 def first_finite(arr, axis):
     '''spits out the indices'''
