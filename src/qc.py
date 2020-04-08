@@ -92,10 +92,10 @@ def qc_turbulence(data):
         ['eps1', 'eps2', 'chi1', 'chi2', 'kT1', 'kT2', 'dtdz1', 'dtdz2'])
     return data
 
-def qc_velocity(data):
-    Wmin = 0.05
-    RotPmax = 20
-    verrmax = 0.02
+def qc_velocity(data, Wmin = 0.05, RotPmax = 20, verrmax = 0.02):
+    '''
+    qc EM velocity measurements based on vertical movement and rotation rate of the float
+    '''
 
     # where cond:  what to keep!
     uv_mask = (np.abs(data.W) > Wmin) & (data.RotP < RotPmax)
@@ -104,13 +104,14 @@ def qc_velocity(data):
 
     data['u1'] = data.u1.where(u1_mask)
     data['u2'] = data.u2.where(u2_mask)
-    data['v1'] = data.u1.where(u1_mask)
+    data['v1'] = data.v1.where(u1_mask)
     data['v2'] = data.v2.where(u2_mask)
 
     data['u'] = avg_funs(data['u1'], data['u2'])
     data['v'] = avg_funs(data['v1'], data['v2'])
     data['dudz'] = avg_funs(data['du1dz'], data['du2dz'])
     data['dvdz'] = avg_funs(data['dv1dz'], data['dv2dz'])
+    data['S2'] = 0.5*( data.dudz**2 + data.dvdz**2 )
 
     data = data.drop([
         'W', 'RotP', 'verr1', 'verr2', 'u1', 'u2', 'v1', 'v2', 'du1dz',

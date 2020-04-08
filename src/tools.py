@@ -58,6 +58,23 @@ def interp_in_space(twod, oned):
     collect = xr.concat(collect,dim='time')
     return collect
 
+def integral(data,z1,z2):
+    if z2>z1:
+        data = data.where( (data.z >= z1) & (data.z <= z2) ) # this is a problem because sometimes it will be the opposite order
+        sign= -1
+    else:
+        data = data.where( (data.z >= z2) & (data.z <= z1) )
+        sign= 1
+    data['z'] = data.z * (-1)*sign
+    array = []
+    return data.dropna('z').integrate('z')
+
+def compute_ape(ds):
+    liste=[]
+    for i,z in enumerate(ds.z):
+        liste.append( 9.81*integral(ds.rho_prime,z,ds.zref.isel(z=i)) )
+    return xr.concat( liste, dim='z')
+
 def integrate_columns(data,lower,upper):
     '''
         Integrate each profile over depth range, e.g., MLD to 0.
@@ -78,13 +95,14 @@ def integrate_columns(data,lower,upper):
         zmin = data[first_finite(data,0)].z
     else:
         zmin = upper
-    # xr.concat(array/(lower-zmin), dim='time')
-    return xr.concat(array, dim='time')
 
-def bandpass_velocity(raw):
+    return xr.concat(array/(lower-zmin), dim='time')
+
+def bandpass_velocity(raw, low=0.8, high=1.2):
     import xrscipy.signal as dsp
     import gsw
 
+    # TODO: fix naming of variables
     lat_mean = raw.lat.mean()
 
     # convert datetime to seconds since t=0
@@ -98,8 +116,8 @@ def bandpass_velocity(raw):
     ny = 2*np.pi/fs
 
     # limits for bandpass
-    low_f = gsw.f(lat_mean)*0.8 # in 1/s
-    high_f = gsw.f(lat_mean)*1.2 # in 1/s
+    low_f = gsw.f(lat_mean)*low # in 1/s
+    high_f = gsw.f(lat_mean)*high # in 1/s
     eps=0 # how to fill nans
     # pick an order?
     ulow = dsp.bandpass(raw.u.fillna(eps), low_f/ny, high_f/ny, dim='dtime', in_nyq=True, order=4)
@@ -114,11 +132,15 @@ def bandpass_velocity(raw):
     ulow = ulow #- ulow.mean(dim='z') - ulow.mean(dim='time')
     vlow = vlow #- vlow.mean(dim='z') - ulow.mean(dim='time')
 
-    return ulow, vlow
+    mask = ~np.isnan(raw.u) & ~np.isnan(raw.v)
+    raw['uNI'] = ulow.drop('dtime').where(mask)
+    raw['vNI'] = vlow.drop('dtime').where(mask)
+
+    return raw
 
 def first_finite(arr, axis):
     '''spits out the indices'''
-    mask = arr.notnull()
+    mask = arr.notnull() & (arr > 0)
     return xr.where(mask.any(axis=axis), mask.argmax(axis=axis), np.nan).fillna(0).astype(int)
 
 def exp_moving_avg(data, tau):
