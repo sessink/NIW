@@ -98,43 +98,50 @@ def integrate_columns(data,lower,upper):
 
     return xr.concat(array/(lower-zmin), dim='time')
 
-def bandpass_velocity(raw, low=0.8, high=1.2):
+def bandpass_velocity(raw, low_f, high_f):
     import xrscipy.signal as dsp
     import gsw
 
     # TODO: fix naming of variables
-    lat_mean = raw.lat.mean()
+    lat_mean = 40.7
 
     # convert datetime to seconds since t=0
-    raw['dtime'] = (raw.time - raw.time.isel(time=0))*1e-9
+    # raw['dtime'] = ('time', np.array( (raw.time - raw.time.isel(time=0)).values*1e-9, dtype=float))
+    # raw['dtime'] = ('time', np.array( (raw.time - raw.time.isel(time=0)).values, dtype=float))
+
     # make dtime a dimension
-    raw = raw.swap_dims({'time':'dtime'})
+    # raw = raw.swap_dims({'time':'dtime'})
 
     # filtering proceduce
     # determine sampling timestep and Nyquist frequency
-    fs = ( dsp.get_sampling_step(raw, dim='time')*1e-9 )
-    ny = 2*np.pi/fs
+    fs = 1/( dsp.get_sampling_step(raw, dim='time')*1e-9 )
+    ny = 0.5*fs
 
     # limits for bandpass
-    low_f = gsw.f(lat_mean)*low # in 1/s
-    high_f = gsw.f(lat_mean)*high # in 1/s
+    # low_f = gsw.f(lat_mean)*low # in 1/s
+    # high_f = gsw.f(lat_mean)*high # in 1/s
     eps=0 # how to fill nans
-    # pick an order?
-    ulow = dsp.bandpass(raw.u.fillna(eps), low_f/ny, high_f/ny, dim='dtime', in_nyq=True, order=4)
-    vlow = dsp.bandpass(raw.v.fillna(eps), low_f/ny, high_f/ny, dim='dtime', in_nyq=True, order=4)
+    # # pick an order?
+    print(gsw.f(40.7)/ny)
+    print(low_f/ny)
+    print(high_f/ny)
+    ulow = dsp.bandpass(raw.u.fillna(eps), low_f/ny, high_f/ny, dim='time', in_nyq=True, order=4)
+    vlow = dsp.bandpass(raw.v.fillna(eps), low_f/ny, high_f/ny, dim='time', in_nyq=True, order=4)
+    # ulow = dsp.bandpass(raw.u.fillna(eps), low_f, high_f, dim='dtime', in_nyq=False, order=4)
+    # vlow = dsp.bandpass(raw.v.fillna(eps), low_f, high_f, dim='dtime', in_nyq=False, order=4)
 
     # swap dims back
-    ulow = ulow.swap_dims({'dtime':'time'})
-    vlow = vlow.swap_dims({'dtime':'time'})
-    raw = raw.swap_dims({'dtime':'time'})
+    # ulow = ulow.swap_dims({'dtime':'time'})
+    # vlow = vlow.swap_dims({'dtime':'time'})
+    # raw = raw.swap_dims({'dtime':'time'})
 
     # remove time and space means?
     ulow = ulow #- ulow.mean(dim='z') - ulow.mean(dim='time')
     vlow = vlow #- vlow.mean(dim='z') - ulow.mean(dim='time')
 
     mask = ~np.isnan(raw.u) & ~np.isnan(raw.v)
-    raw['uNI'] = ulow.drop('dtime').where(mask)
-    raw['vNI'] = vlow.drop('dtime').where(mask)
+    raw['uNI'] = ulow.where(mask)
+    raw['vNI'] = vlow.where(mask)
 
     return raw
 
