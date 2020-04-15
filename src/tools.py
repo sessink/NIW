@@ -223,6 +223,44 @@ def bandstop_variable(raw,array, low_f, high_f):
 
     return raw
 
+def lowpass_variable(raw,array, low_f, high_f):
+    import xrscipy.signal as dsp
+    import gsw
+
+    # TODO: fix naming of variables
+
+    # convert datetime to seconds since t=0
+    raw['dtime'] = ('time', np.array( (raw.time - raw.time.isel(time=0)).values*1e-9, dtype=float))
+    # raw['dtime'] = ('time', np.array( (raw.time - raw.time.isel(time=0)).values, dtype=float))
+
+    # make dtime a dimension
+    raw = raw.swap_dims({'time':'dtime'})
+
+    # filtering proceduce
+    # determine sampling timestep and Nyquist frequency
+    T = ( dsp.get_sampling_step(raw, dim='dtime') )
+    fs = 1/T
+    ny = 0.5*fs
+
+    # limits for bandpass
+    eps=0 # how to fill nans
+    # # pick an order?
+    print(low_f/ny)
+    print(high_f/ny)
+    ulow = dsp.lowpass(raw[array].dropna('z'), low_f/ny, dim='dtime', in_nyq=True, order=4)
+
+    # swap dims back
+    ulow = ulow.swap_dims({'dtime':'time'})
+    raw = raw.swap_dims({'dtime':'time'})
+
+    # remove time and space means?
+    ulow = ulow #- ulow.mean(dim='z') - ulow.mean(dim='time')
+
+    mask = ~np.isnan(raw[array])
+    varname = array+'LOW'
+    raw[varname] = ulow.where(mask)
+
+    return raw
 
 def first_finite(arr, axis):
     '''spits out the indices'''
