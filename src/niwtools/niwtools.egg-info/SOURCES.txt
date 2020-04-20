@@ -1,0 +1,8 @@
+setup.py
+niwtools/__init__.py
+niwtools/tools.py
+niwtools.egg-info/PKG-INFO
+niwtools.egg-info/SOURCES.txt
+niwtools.egg-info/dependency_links.txt
+niwtools.egg-info/not-zip-safe
+niwtools.egg-info/top_level.txt
