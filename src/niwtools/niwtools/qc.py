@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from cmocean import cm
 
-from tools import str2date, avg_funs
+from niwtools.tools import str2date, avg_funs
 
 # set up figure params
 sns.set(style='ticks', context='paper')

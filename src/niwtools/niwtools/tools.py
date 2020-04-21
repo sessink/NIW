@@ -1,5 +1,7 @@
 import numpy as np
 import xarray as xr
+import gsw
+import xrscipy.signal as dsp
 
 def load_matfile(file):
     '''Read Matlab structure files and convert to numpy arrays'''
@@ -11,7 +13,6 @@ def str2date(string, format='%Y,%m,%d'):
        xarray's date index (np.datetime64)
     '''
     from datetime import datetime
-    import numpy as np
     if type(string) is not str:
         string = string.flatten()[0]
     return np.datetime64(datetime.strptime(string, format))
@@ -28,8 +29,6 @@ def compute_mld(data):
 
     last changed: july 2,19
     '''
-    import numpy as np
-    import xarray as xr
     from scipy.interpolate import interp1d
 
     mld = np.zeros(data.time.size)
@@ -100,7 +99,6 @@ def integrate_columns(data,lower,upper):
 
 def bandpass_velocity(raw, low_f, high_f):
     import xrscipy.signal as dsp
-    import gsw
 
     # TODO: fix naming of variables
 
@@ -123,8 +121,8 @@ def bandpass_velocity(raw, low_f, high_f):
     # high_f = gsw.f(lat_mean)*high # in 1/s
     eps=0 # how to fill nans
     # # pick an order?
-    print(low_f/ny)
-    print(high_f/ny)
+    # print(low_f/ny)
+    # print(high_f/ny)
     ulow = dsp.bandpass(raw.u.fillna(eps), low_f/ny, high_f/ny, dim='dtime', in_nyq=True, order=4)
     vlow = dsp.bandpass(raw.v.fillna(eps), low_f/ny, high_f/ny, dim='dtime', in_nyq=True, order=4)
     # ulow = dsp.bandpass(raw.u.fillna(eps), low_f, high_f, dim='dtime', in_nyq=False, order=4)
@@ -147,7 +145,6 @@ def bandpass_velocity(raw, low_f, high_f):
 
 def bandpass_variable(raw,array, low_f, high_f):
     import xrscipy.signal as dsp
-    import gsw
 
     # TODO: fix naming of variables
 
@@ -167,8 +164,8 @@ def bandpass_variable(raw,array, low_f, high_f):
     # limits for bandpass
     eps=0 # how to fill nans
     # # pick an order?
-    print(low_f/ny)
-    print(high_f/ny)
+    # print(low_f/ny)
+    # print(high_f/ny)
     ulow = dsp.bandpass(raw[array].fillna(eps), low_f/ny, high_f/ny, dim='dtime', in_nyq=True, order=4)
 
     # swap dims back
@@ -186,7 +183,6 @@ def bandpass_variable(raw,array, low_f, high_f):
 
 def bandstop_variable(raw,array, low_f, high_f):
     import xrscipy.signal as dsp
-    import gsw
 
     # TODO: fix naming of variables
 
@@ -206,8 +202,8 @@ def bandstop_variable(raw,array, low_f, high_f):
     # limits for bandpass
     eps=0 # how to fill nans
     # # pick an order?
-    print(low_f/ny)
-    print(high_f/ny)
+    # print(low_f/ny)
+    # print(high_f/ny)
     ulow = dsp.bandstop(raw[array].fillna(eps), low_f/ny, high_f/ny, dim='dtime', in_nyq=True, order=4)
 
     # swap dims back
@@ -225,7 +221,6 @@ def bandstop_variable(raw,array, low_f, high_f):
 
 def lowpass_variable(raw,array, low_f, high_f):
     import xrscipy.signal as dsp
-    import gsw
 
     # TODO: fix naming of variables
 
@@ -245,8 +240,8 @@ def lowpass_variable(raw,array, low_f, high_f):
     # limits for bandpass
     eps=0 # how to fill nans
     # # pick an order?
-    print(low_f/ny)
-    print(high_f/ny)
+    # print(low_f/ny)
+    # print(high_f/ny)
     ulow = dsp.lowpass(raw[array].dropna('z'), low_f/ny, dim='dtime', in_nyq=True, order=4)
 
     # swap dims back
@@ -291,6 +286,54 @@ def alphabet(ax):
 
 def avg_funs(array1, array2):
     '''take average taking into account nans'''
-    import xarray as xr
     concat = xr.concat([array1, array2], dim='temp')
     return concat.mean(dim='temp')
+
+def compute_spectra(raw,array):
+    raw['dtime'] = ('time', np.array( (raw.time - raw.time.isel(time=0)).values*1e-9, dtype=float))
+    raw = raw.swap_dims({'time':'dtime'})
+    return dsp.spectrogram(raw[array].dropna('z', how='all'), dim='dtime',
+                           fs=86400/dsp.get_sampling_step(raw, dim='dtime'), nperseg=128 )
+
+def compute_spectra_cfs(raw,array):
+    raw['dtime'] = ('time', np.array( (raw.time - raw.time.isel(time=0)).values*1e-9, dtype=float))
+    raw = raw.swap_dims({'time':'dtime'})
+    return dsp.spectrogram(raw[array], dim='dtime', fs=86400/dsp.get_sampling_step(raw, dim='dtime'), nperseg=128 )
+
+def add_cfs_data(raw, floatid):
+    cfs = xr.open_dataset('../data/metdata/float_cfs_hourly.nc')
+    cfs = cfs.sel(floatid=f'{floatid}')
+    cfs = cfs.interp_like(raw)
+
+    # extract uppermost velocity measuremnt
+    indu = first_finite(raw.u, 0)
+    indv = first_finite(raw.v, 0)
+    raw['u_surf'] = raw.u[indu]
+    raw['v_surf'] = raw.v[indv]
+
+    # extract uppermost velocity measuremnt
+    try:
+        indu = first_finite(raw.uNI, 0)
+        indv = first_finite(raw.vNI, 0)
+        raw['u_surf_ni'] = raw.uNI[indu]
+        raw['v_surf_ni'] = raw.vNI[indv]
+    except:
+        None
+    raw['tx'] = ('time', -cfs['tx'])
+    raw['ty'] = ('time', -cfs['ty'])
+
+    f = gsw.f(40.7)/(2*np.pi)
+    try:
+        raw = bandpass_variable(raw,'tx', 0.75*f, 1.25*f)
+        raw = bandpass_variable(raw,'ty', 0.75*f, 1.25*f)
+    except:
+        None
+
+    raw['taudotu'] = raw.u_surf * raw.tx + raw.v_surf * raw.ty
+    try:
+        raw['taudotu_ni'] = raw.u_surf_ni * raw.tx + raw.v_surf_ni * raw.ty
+        raw['taudotu_ni_ni'] = raw.u_surf_ni * raw.txNI + raw.v_surf_ni * raw.tyNI
+    except:
+        None
+    raw['tau'] = ('time', np.sqrt( raw.tx**2 + raw.ty**2 ))
+    return raw
