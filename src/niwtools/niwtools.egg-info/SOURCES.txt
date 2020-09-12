@@ -1,5 +1,6 @@
 setup.py
 niwtools/__init__.py
+niwtools/qc.py
 niwtools/tools.py
 niwtools.egg-info/PKG-INFO
 niwtools.egg-info/SOURCES.txt
