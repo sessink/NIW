@@ -259,7 +259,7 @@ def lowpass_variable(raw,array, low_f, high_f):
 
 def first_finite(arr, axis):
     '''spits out the indices'''
-    mask = arr.notnull() & (arr > 0)
+    mask = arr.notnull() & (np.abs(arr) > 0)
     return xr.where(mask.any(axis=axis), mask.argmax(axis=axis), np.nan).fillna(0).astype(int)
 
 def exp_moving_avg(data, tau):
@@ -300,10 +300,10 @@ def compute_spectra_cfs(raw,array):
     raw = raw.swap_dims({'time':'dtime'})
     return dsp.spectrogram(raw[array], dim='dtime', fs=86400/dsp.get_sampling_step(raw, dim='dtime'), nperseg=128 )
 
-def add_cfs_data(raw, floatid):
+def add_cfs_data(raw, floatid, lowf, highf):
     cfs = xr.open_dataset('../data/metdata/float_cfs_hourly.nc')
     cfs = cfs.sel(floatid=f'{floatid}')
-    cfs = cfs.interp_like(raw)
+    cfs = cfs.interp_like(raw,method='slinear')
 
     # extract uppermost velocity measuremnt
     indu = first_finite(raw.u, 0)
@@ -322,10 +322,10 @@ def add_cfs_data(raw, floatid):
     raw['tx'] = ('time', -cfs['tx'])
     raw['ty'] = ('time', -cfs['ty'])
 
-    f = gsw.f(40.7)/(2*np.pi)
+    # f = gsw.f(40.7)/(2*np.pi)
     try:
-        raw = bandpass_variable(raw,'tx', 0.75*f, 1.25*f)
-        raw = bandpass_variable(raw,'ty', 0.75*f, 1.25*f)
+        raw = bandpass_variable(raw,'tx', lowf, highf)
+        raw = bandpass_variable(raw,'ty', lowf, highf)
     except:
         None
 
