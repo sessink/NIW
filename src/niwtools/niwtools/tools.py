@@ -6,6 +6,7 @@ import xrscipy.signal as dsp
 def load_matfile(file):
     '''Read Matlab structure files and convert to numpy arrays'''
     import scipy.io as sio
+    import numpy as np
     return sio.loadmat(file, struct_as_record=True, squeeze_me=True)
 
 def str2date(string, format='%Y,%m,%d'):
